@@ -33,6 +33,7 @@ export default function HotelOwnerDashboard() {
           const response = await client.query({
             query: GET_HOTELS_BY_OWNER_QUERY,
             variables: { limit: 10, offset: 0 },
+            fetchPolicy: 'network-only', // Bypass cache and fetch fresh data
           });
           setHotelsData(response.data);
         } catch (error: any) {
@@ -126,8 +127,8 @@ export default function HotelOwnerDashboard() {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
+            <div className="mb-8">
+              <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow max-w-md">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Create New Hotel</h3>
                 <p className="text-gray-600 mb-4">Add a new hotel to your portfolio</p>
                 <Link 
@@ -136,42 +137,6 @@ export default function HotelOwnerDashboard() {
                   aria-label="Create a new hotel"
                 >
                   Create Hotel
-                </Link>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Manage Hotels</h3>
-                <p className="text-gray-600 mb-4">View and edit your existing hotels</p>
-                <Link 
-                  href="/hotel-owner/manage-hotels" 
-                  className="inline-block bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                  aria-label="Manage existing hotels"
-                >
-                  Manage Hotels
-                </Link>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Room Management</h3>
-                <p className="text-gray-600 mb-4">Manage room types and individual rooms</p>
-                <Link 
-                  href="/hotel-owner/room-management" 
-                  className="inline-block bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                  aria-label="Manage room types and individual rooms"
-                >
-                  Manage Rooms
-                </Link>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">API Integration</h3>
-                <p className="text-gray-600 mb-4">Manage API keys and integrations</p>
-                <Link 
-                  href="/hotel-owner/api-integration" 
-                  className="inline-block bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
-                  aria-label="Manage API keys and integrations"
-                >
-                  API Settings
                 </Link>
               </div>
             </div>

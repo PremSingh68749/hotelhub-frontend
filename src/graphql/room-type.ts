@@ -135,7 +135,7 @@ export interface CreateRoomTypeWithImagesInput {
   roomCount?: number;
   bedType?: string;
   size?: string;
-  images?: MultipleImageUploadInput;
+  images?: ImageUrlInput[];
 }
 
 export interface UpdateRoomTypeWithImagesInput {
@@ -146,20 +146,16 @@ export interface UpdateRoomTypeWithImagesInput {
   roomCount?: number;
   bedType?: string;
   size?: string;
-  newImages?: MultipleImageUploadInput;
+  newImages?: ImageUrlInput[];
   deleteImageIds?: number[];
 }
 
-export interface ImageUploadInput {
-  file: File;
+export interface ImageUrlInput {
+  url: string;
   altText?: string;
   caption?: string;
   isPrimary?: boolean;
   sortOrder?: number;
-}
-
-export interface MultipleImageUploadInput {
-  images?: ImageUploadInput[];
 }
 
 // Response interfaces

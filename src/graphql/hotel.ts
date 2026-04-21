@@ -310,24 +310,7 @@ export const DELETE_HOTEL_MUTATION = gql`
   }
 `;
 
-// File Upload Mutations
-export const UPLOAD_HOTEL_IMAGES_MUTATION = gql`
-  mutation UploadHotelImages($files: [Upload!]!) {
-    uploadHotelImages(files: $files)
-  }
-`;
 
-export const UPLOAD_MULTIPLE_FILES_MUTATION = gql`
-  mutation UploadMultipleFiles($files: [Upload!]!) {
-    uploadMultipleFiles(files: $files)
-  }
-`;
-
-export const UPLOAD_FILE_MUTATION = gql`
-  mutation UploadFile($file: Upload!) {
-    uploadFile(file: $file)
-  }
-`;
 
 // TypeScript interfaces
 export interface Hotel {

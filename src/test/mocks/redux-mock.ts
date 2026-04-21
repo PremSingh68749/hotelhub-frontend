@@ -1,5 +1,5 @@
 import configureMockStore from 'redux-mock-store';
-import { PreloadedState } from '@reduxjs/toolkit';
+import { RootState } from '../../lib/store';
 
 /**
  * Create a mock Redux store for testing
@@ -10,8 +10,8 @@ import { PreloadedState } from '@reduxjs/toolkit';
  */
 const mockStore = configureMockStore();
 
-export function createMockStore<T extends Record<string, any>>(
-  preloadedState: PreloadedState<T>
+export function createMockStore(
+  preloadedState: Partial<RootState>
 ) {
   return mockStore(preloadedState);
 }

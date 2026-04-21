@@ -256,7 +256,7 @@ export interface CreateRoomWithImagesInput {
   hasWiFi?: boolean;
   hasAirConditioning?: boolean;
   hasHeating?: boolean;
-  images?: MultipleImageUploadInput;
+  images?: ImageUrlInput[];
 }
 
 export interface UpdateRoomWithImagesInput {
@@ -278,16 +278,12 @@ export interface UpdateRoomWithImagesInput {
   hasWiFi?: boolean;
   hasAirConditioning?: boolean;
   hasHeating?: boolean;
-  newImages?: MultipleImageUploadInput;
+  newImages?: ImageUrlInput[];
   deleteImageIds?: number[];
 }
 
-export interface MultipleImageUploadInput {
-  images?: ImageUploadInput[];
-}
-
-export interface ImageUploadInput {
-  file: File;
+export interface ImageUrlInput {
+  url: string;
   altText?: string;
   caption?: string;
   isPrimary?: boolean;

@@ -4,19 +4,30 @@ import {
   RenderOptions,
 } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { configureStore, PreloadedState } from '@reduxjs/toolkit';
-import authReducer from '@/lib/slices/authSlice';
-import hotelReducer from '@/lib/slices/hotelSlice';
+import { configureStore, combineReducers } from '@reduxjs/toolkit';
+import { persistReducer } from 'redux-persist';
+import storage from 'redux-persist/lib/storage';
+import authSlice from '@/lib/slices/authSlice';
+import hotelSlice from '@/lib/slices/hotelSlice';
 import { ReactNode } from 'react';
+import { RootState } from '../lib/store';
+
+const persistConfig = {
+  key: 'root',
+  storage,
+  whitelist: ['auth'],
+};
+
+const rootReducer = combineReducers({
+  auth: authSlice,
+  hotel: hotelSlice,
+});
+
+const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 interface ExtendedRenderOptions extends Omit<RenderOptions, 'wrapper'> {
-  preloadedState?: PreloadedState<RootState>;
+  preloadedState?: Partial<RootState>;
   store?: ReturnType<typeof configureStore>;
-}
-
-export interface RootState {
-  auth: ReturnType<typeof authReducer>;
-  hotel: ReturnType<typeof hotelReducer>;
 }
 
 /**
@@ -31,11 +42,15 @@ export function renderWithProviders(
   {
     preloadedState = {} as RootState,
     store = configureStore({
-      reducer: {
-        auth: authReducer,
-        hotel: hotelReducer,
-      },
-      preloadedState,
+      reducer: persistedReducer,
+      preloadedState: preloadedState as any,
+      middleware: (getDefaultMiddleware) =>
+        getDefaultMiddleware({
+          serializableCheck: {
+            ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE', 'persist/REGISTER'],
+            ignoredPaths: ['register'],
+          },
+        }),
     }),
     ...renderOptions
   }: ExtendedRenderOptions = {}

@@ -1,15 +1,13 @@
-import { MockedProvider, MockedResponse } from '@apollo/client/testing';
-import { ReactNode } from 'react';
-import { ApolloClient, NormalizedCacheObject } from '@apollo/client';
+import { MockedResponse } from '@apollo/client/testing';
+import { ReactNode, ReactElement } from 'react';
 
 export interface MockApolloProps {
   mocks?: readonly MockedResponse[];
-  client?: ApolloClient<NormalizedCacheObject>;
   children: ReactNode;
 }
 
 /**
- * Wrapper component to provide Apollo Client with mocked responses
+ * Simple wrapper for testing without Apollo Provider
  * Usage in tests:
  * render(
  *   <MockApollo mocks={[mockQuery]}>
@@ -19,14 +17,11 @@ export interface MockApolloProps {
  */
 export function MockApollo({
   mocks = [],
-  client,
   children,
 }: MockApolloProps) {
-  return (
-    <MockedProvider mocks={mocks} client={client}>
-      {children}
-    </MockedProvider>
-  );
+  // For now, just return children since we're not using Apollo for file uploads
+  // This can be enhanced later if needed
+  return children as ReactElement;
 }
 
 /**

@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useRouter } from 'next/navigation';
 import { RootState } from '../../../lib/store';
-import { CREATE_HOTEL_WITH_URLS_MUTATION, UPLOAD_HOTEL_IMAGES_MUTATION } from '../../../graphql/hotel';
+import { CREATE_HOTEL_WITH_URLS_MUTATION } from '../../../graphql/hotel';
 import { client } from '../../../lib/apollo-client';
-import { uploadClient } from '../../../lib/apollo-upload-client';
+import { fileUploadService } from '../../../services/file-upload.service';
 import { CreateHotelWithUrlsInput, ImageUrlInput, CreateHotelResponse } from '../../../graphql/hotel';
-import { Upload } from '../../../graphql/scalars/upload.scalar';
+import { StarRating } from '../../../components/StarRating';
+import { CustomPhoneInput } from '../../../components/PhoneInput';
+import { LocationSelect } from '../../../components/LocationSelect';
 import Link from 'next/link';
 
 export default function CreateHotelForm() {
@@ -33,8 +35,6 @@ export default function CreateHotelForm() {
     email: '',
     website: '',
     rating: 0,
-    latitude: 0,
-    longitude: 0,
     totalRooms: 0,
     checkInTime: '14:00',
     checkOutTime: '11:00',
@@ -70,49 +70,42 @@ export default function CreateHotelForm() {
   }, [error]);
 
   // File upload handlers
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    setUploadedFiles(files);
-  };
-
-  const handleFileUpload = async () => {
-    if (uploadedFiles.length === 0) {
-      setError('Please select files to upload first');
+    if (files.length === 0) {
       return;
     }
 
+    setUploadedFiles(files);
     setIsUploading(true);
+    setError(null);
+
     try {
-      const response = await uploadClient.mutate<{ uploadHotelImages: string[] }>({
-        mutation: UPLOAD_HOTEL_IMAGES_MUTATION,
-        variables: { files: uploadedFiles }
-      });
+      const uploadedUrls = await fileUploadService.uploadHotelImages(files);
+      
+      console.log('Files uploaded successfully:', uploadedUrls);
+      
+      // Convert uploaded URLs to ImageUrlInput format
+      const hasExistingImages = (formData.images?.images?.length || 0) > 0;
+      const newImages = uploadedUrls.map((url: string, index: number) => ({
+        url,
+        altText: `Hotel image ${index + 1}`,
+        caption: `Image ${index + 1}`,
+        isPrimary: !hasExistingImages && index === 0,
+        sortOrder: (formData.images?.images?.length || 0) + index + 1
+      }));
 
-      if (response.data?.uploadHotelImages) {
-        console.log('Files uploaded successfully:', response.data.uploadHotelImages);
-        
-        // Convert uploaded URLs to ImageUrlInput format
-        const hasExistingImages = (formData.images?.images?.length || 0) > 0;
-        const newImages = response.data.uploadHotelImages.map((url: string, index: number) => ({
-          url,
-          altText: `Hotel image ${index + 1}`,
-          caption: `Image ${index + 1}`,
-          isPrimary: !hasExistingImages && index === 0,
-          sortOrder: (formData.images?.images?.length || 0) + index + 1
-        }));
+      setFormData((prev: CreateHotelWithUrlsInput) => ({
+        ...prev,
+        images: {
+          images: [...(prev.images?.images || []), ...newImages]
+        }
+      }));
 
-        setFormData((prev: CreateHotelWithUrlsInput) => ({
-          ...prev,
-          images: {
-            images: [...(prev.images?.images || []), ...newImages]
-          }
-        }));
-
-        // Clear uploaded files
-        setUploadedFiles([]);
-        setError(null);
-      } else {
-        setError('Failed to upload images');
+      // Clear uploaded files and reset input
+      setUploadedFiles([]);
+      if (e.target) {
+        e.target.value = '';
       }
     } catch (err: any) {
       console.error('Upload error:', err);
@@ -172,11 +165,32 @@ export default function CreateHotelForm() {
     }));
   };
 
-  const handleImageRemove = (index: number) => {
+  const handleRatingChange = (rating: number) => {
+    setFormData((prev: CreateHotelWithUrlsInput) => ({
+      ...prev,
+      rating
+    }));
+  };
+
+  const handlePhoneChange = (phone: string) => {
+    setFormData((prev: CreateHotelWithUrlsInput) => ({
+      ...prev,
+      phone
+    }));
+  };
+
+  const handleLocationChange = (field: 'country' | 'state' | 'city', value: string) => {
+    setFormData((prev: CreateHotelWithUrlsInput) => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleImageRemove = (urlToRemove: string) => {
     setFormData((prev: CreateHotelWithUrlsInput) => ({
       ...prev,
       images: {
-        images: prev.images?.images?.filter((_: ImageUrlInput, i: number) => i !== index) || []
+        images: prev.images?.images?.filter(image => image.url !== urlToRemove) || []
       }
     }));
   };
@@ -208,7 +222,7 @@ export default function CreateHotelForm() {
         variables: {
           input: {
             ...formData,
-            rating: formData.rating || undefined,
+            rating: formData.rating && formData.rating > 0 ? parseFloat(formData.rating.toFixed(1)) : undefined,
             totalRooms: formData.totalRooms || undefined
           }
         }
@@ -219,16 +233,16 @@ export default function CreateHotelForm() {
       if (response.data?.createHotelWithUrls) {
         console.log('Hotel created successfully'); // Debug log
         setSuccess(true);
-        setTimeout(() => {
-          router.push('/hotel-owner');
-        }, 2000);
+        // Redirect immediately to dashboard
+        router.push('/hotel-owner');
       } else {
         console.log('API call failed'); // Debug log
         setError('Failed to create hotel. Please try again.');
       }
     } catch (err: any) {
       console.error('Error creating hotel:', err); // Debug log
-      setError(err.message || 'Failed to create hotel. Please try again.');
+      setError(err.message || 'Failed to create hotel. Please check the form and try again.');
+      // Form data is preserved - user can fix errors and retry
     } finally {
       setIsLoading(false);
     }
@@ -316,15 +330,11 @@ export default function CreateHotelForm() {
                 <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
                   Phone Number
                 </label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  aria-describedby="phone-help"
-                  value={formData.phone}
-                  onChange={handleInputChange}
+                <CustomPhoneInput
+                  value={formData.phone || ''}
+                  onChange={handlePhoneChange}
                   placeholder="+1 (555) 123-4567"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500"
+                  className="w-full"
                 />
                 <p id="phone-help" className="mt-1 text-sm text-gray-500">Main contact phone number</p>
               </div>
@@ -391,63 +401,17 @@ export default function CreateHotelForm() {
                 <p id="address-help" className="mt-1 text-sm text-gray-500">Complete street address including suite/apartment number</p>
               </div>
 
-              <div>
-                <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
-                  City <span className="text-red-500" aria-label="required">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="city"
-                  name="city"
-                  required
-                  aria-required="true"
-                  aria-describedby="city-help"
-                  value={formData.city}
-                  onChange={handleInputChange}
-                  placeholder="New York"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500"
+              <LocationSelect
+                  countryValue={formData.country}
+                  stateValue={formData.state}
+                  cityValue={formData.city}
+                  onCountryChange={(value) => handleLocationChange('country', value)}
+                  onStateChange={(value) => handleLocationChange('state', value)}
+                  onCityChange={(value) => handleLocationChange('city', value)}
+                  disabled={isLoading}
                 />
-                <p id="city-help" className="mt-1 text-sm text-gray-500">City where the hotel is located</p>
-              </div>
 
-              <div>
-                <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-2">
-                  State/Province <span className="text-red-500" aria-label="required">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="state"
-                  name="state"
-                  required
-                  aria-required="true"
-                  aria-describedby="state-help"
-                  value={formData.state}
-                  onChange={handleInputChange}
-                  placeholder="New York"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500"
-                />
-                <p id="state-help" className="mt-1 text-sm text-gray-500">State or province</p>
-              </div>
-
-              <div>
-                <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2">
-                  Country <span className="text-red-500" aria-label="required">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="country"
-                  name="country"
-                  required
-                  aria-required="true"
-                  aria-describedby="country-help"
-                  value={formData.country}
-                  onChange={handleInputChange}
-                  placeholder="United States"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500"
-                />
-                <p id="country-help" className="mt-1 text-sm text-gray-500">Country where the hotel is located</p>
-              </div>
-
+              
               <div>
                 <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-2">
                   Postal Code <span className="text-red-500" aria-label="required">*</span>
@@ -475,6 +439,16 @@ export default function CreateHotelForm() {
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Hotel Rating
+                </label>
+                <StarRating
+                  rating={formData.rating || 0}
+                  onRatingChange={handleRatingChange}
+                  size="md"
+                />
+              </div>
+              <div>
                 <label htmlFor="totalRooms" className="block text-sm font-medium text-gray-700 mb-2">
                   Total Rooms
                 </label>
@@ -483,9 +457,10 @@ export default function CreateHotelForm() {
                   id="totalRooms"
                   name="totalRooms"
                   min="0"
-                  value={formData.totalRooms}
+                  value={formData.totalRooms || ''}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                  placeholder="Number of rooms"
                 />
               </div>
 
@@ -562,78 +537,51 @@ export default function CreateHotelForm() {
 
           {/* Images */}
           <div className="bg-white shadow rounded-lg p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Hotel Images</h2>
-              <button
-                type="button"
-                onClick={handleImageAdd}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
-              >
-                Add Image
-              </button>
-            </div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Hotel Images</h2>
 
             {formData.images?.images?.map((image: ImageUrlInput, index: number) => (
               <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4">
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">Image {index + 1}</h3>
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Image {index + 1} {image.url ? '✓' : ''}
+                  </h3>
                   <div className="flex space-x-2">
                     <button
                       type="button"
-                      onClick={() => handleImageRemove(index)}
+                      onClick={() => handleImageRemove(image.url)}
                       className="bg-red-600 text-white px-3 py-2 rounded-md hover:bg-red-700"
                     >
                       Remove
                     </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Image URL *
-                    </label>
-                    <input
-                      type="url"
-                      value={image.url}
-                      onChange={(e) => handleImageChange(index, 'url', e.target.value)}
-                      placeholder="https://example.com/image.jpg"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 placeholder-gray-500"
-                    />
+                {image.url && (
+                  <div className="mt-4">
+                    <div className="relative group">
+                      <img
+                        src={image.url}
+                        alt={`Hotel image ${index + 1}`}
+                        className="w-full h-48 object-cover rounded-lg border border-gray-200"
+                      />
+                      <div className="absolute top-2 right-2 bg-white bg-opacity-90 rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => handleImageRemove(image.url)}
+                          className="text-red-600 hover:text-red-800 text-sm"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Alt Text
-                    </label>
-                    <input
-                      type="text"
-                      value={image.altText}
-                      onChange={(e) => handleImageChange(index, 'altText', e.target.value)}
-                      placeholder="Description of image"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 placeholder-gray-500"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Caption
-                    </label>
-                    <input
-                      type="text"
-                      value={image.caption}
-                      onChange={(e) => handleImageChange(index, 'caption', e.target.value)}
-                      placeholder="Image caption"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 placeholder-gray-500"
-                    />
-                  </div>
-                </div>
+                )}
               </div>
             ))}
 
             {/* Selected Files Preview */}
             <div className="mt-6 p-4 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Upload New Images
+                Upload Images (Automatic on selection)
               </label>
               <div className="flex flex-col space-y-4">
                 <input
@@ -649,32 +597,41 @@ export default function CreateHotelForm() {
                     hover:file:bg-indigo-100"
                 />
                 
+                {isUploading && (
+                  <div className="text-sm text-blue-600 flex items-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Uploading images...
+                  </div>
+                )}
+
+                {/* Uploaded Files Preview */}
                 {uploadedFiles.length > 0 && (
-                  <div className="text-sm text-gray-600">
-                    <p className="font-medium underline">Selected files:</p>
-                    <ul className="list-disc list-inside mt-1">
-                      {uploadedFiles.map((file, i) => (
-                        <li key={i}>{file.name} ({(file.size / 1024).toFixed(1)} KB)</li>
+                  <div className="mt-4 p-3 bg-green-50 rounded border border-green-200">
+                    <p className="text-sm text-green-800 font-medium">
+                      ✓ {uploadedFiles.length} file(s) selected and ready for upload
+                    </p>
+                    <div className="mt-2 space-y-2">
+                      {uploadedFiles.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
+                          <span className="text-sm text-gray-700 truncate">
+                            {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newFiles = uploadedFiles.filter((_, i) => i !== index);
+                              setUploadedFiles(newFiles);
+                            }}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       ))}
-                    </ul>
-                    <button
-                      type="button"
-                      onClick={handleFileUpload}
-                      disabled={isUploading}
-                      className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center"
-                    >
-                      {isUploading ? (
-                        <>
-                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Uploading...
-                        </>
-                      ) : (
-                        'Upload to Cloudinary'
-                      )}
-                    </button>
+                    </div>
                   </div>
                 )}
               </div>
