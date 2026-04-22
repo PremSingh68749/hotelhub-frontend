@@ -8,6 +8,7 @@ import { AppDispatch, RootState } from '../../lib/store';
 import { signup, clearError } from '../../lib/slices/authSlice';
 import { SignupInput, UserType } from '../../graphql/auth';
 import { showSuccessToast, showErrorToast } from '../../lib/toast';
+import { PasswordInput } from '../PasswordInput';
 
 const SignupForm = () => {
   const router = useRouter();
@@ -265,18 +266,15 @@ const SignupForm = () => {
               <label htmlFor="password" className="block text-sm font-medium text-gray-900 mb-2">
                 Password
               </label>
-              <input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
-                required
-                aria-required="true"
-                aria-describedby="password-error"
-                className="mt-1 appearance-none relative block w-full px-3 py-3 border-2 border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors duration-200"
-                placeholder="Min. 6 characters"
                 value={formData.password}
                 onChange={handleChange}
-                // Keep onBlur trimming for final cleanup
+                placeholder="Min. 6 characters"
+                required
+                ariaDescribedBy="password-error"
+                className="mt-1 appearance-none relative block w-full px-3 py-3 border-2 border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors duration-200"
                 minLength={6}
               />
             </div>
@@ -285,18 +283,15 @@ const SignupForm = () => {
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-900 mb-2">
                 Confirm Password
               </label>
-              <input
+              <PasswordInput
                 id="confirmPassword"
                 name="confirmPassword"
-                type="password"
-                required
-                aria-required="true"
-                aria-describedby="confirmPassword-error"
-                className="mt-1 appearance-none relative block w-full px-3 py-3 border-2 border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors duration-200"
-                placeholder="Confirm your password"
                 value={confirmPassword}
                 onChange={handleConfirmPasswordChange}
-                // Keep onBlur trimming for final cleanup
+                placeholder="Confirm your password"
+                required
+                ariaDescribedBy="confirmPassword-error"
+                className="mt-1 appearance-none relative block w-full px-3 py-3 border-2 border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors duration-200"
               />
             </div>
           </div>

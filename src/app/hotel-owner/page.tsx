@@ -183,13 +183,13 @@ export default function HotelOwnerDashboard() {
                         </div>
                         <div className="flex space-x-2">
                           <Link 
-                            href={`/hotel-owner/hotel/${hotel.id}`}
+                            href={`/hotel-owner/view-hotel/${hotel.id}`}
                             className="flex-1 text-center bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700"
                           >
                             View Details
                           </Link>
                           <Link 
-                            href={`/hotel-owner/hotel/${hotel.id}/edit`}
+                            href={`/hotel-owner/update-hotel/${hotel.id}`}
                             className="flex-1 text-center bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700"
                           >
                             Edit

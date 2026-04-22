@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
+import { Country, State, City } from 'country-state-city';
 
 interface LocationSelectProps {
   countryValue?: string;
@@ -12,39 +13,8 @@ interface LocationSelectProps {
   disabled?: boolean;
 }
 
-// Common countries with their states and cities
-const COUNTRIES = [
-  {
-    code: 'IN',
-    name: 'India',
-    states: [
-      { code: 'MH', name: 'Maharashtra', cities: ['Mumbai', 'Pune', 'Nagpur'] },
-      { code: 'KA', name: 'Karnataka', cities: ['Bangalore', 'Mysore', 'Hubli'] },
-      { code: 'DL', name: 'Delhi', cities: ['New Delhi', 'Noida', 'Gurgaon'] },
-      { code: 'GJ', name: 'Gujarat', cities: ['Ahmedabad', 'Surat', 'Vadodara'] },
-      { code: 'RJ', name: 'Rajasthan', cities: ['Jaipur', 'Udaipur', 'Jodhpur'] }
-    ]
-  },
-  {
-    code: 'US',
-    name: 'United States',
-    states: [
-      { code: 'CA', name: 'California', cities: ['Los Angeles', 'San Francisco', 'San Diego'] },
-      { code: 'NY', name: 'New York', cities: ['New York City', 'Buffalo', 'Rochester'] },
-      { code: 'TX', name: 'Texas', cities: ['Houston', 'Dallas', 'Austin'] },
-      { code: 'FL', name: 'Florida', cities: ['Miami', 'Orlando', 'Tampa'] }
-    ]
-  },
-  {
-    code: 'UK',
-    name: 'United Kingdom',
-    states: [
-      { code: 'ENG', name: 'England', cities: ['London', 'Manchester', 'Birmingham'] },
-      { code: 'SCT', name: 'Scotland', cities: ['Edinburgh', 'Glasgow', 'Aberdeen'] },
-      { code: 'WLS', name: 'Wales', cities: ['Cardiff', 'Swansea', 'Newport'] }
-    ]
-  }
-];
+// All countries from the country-state-city package
+const COUNTRIES = Country.getAllCountries().map((c) => ({ code: c.isoCode, name: c.name }));
 
 export const LocationSelect: React.FC<LocationSelectProps> = ({
   countryValue,
@@ -55,8 +25,13 @@ export const LocationSelect: React.FC<LocationSelectProps> = ({
   onCityChange,
   disabled = false
 }) => {
-  const selectedCountry = COUNTRIES.find(c => c.code === countryValue);
-  const selectedState = selectedCountry?.states.find(s => s.code === stateValue);
+  const states = countryValue
+    ? State.getStatesOfCountry(countryValue).map((s) => ({ code: s.isoCode, name: s.name }))
+    : [];
+  const cities = countryValue && stateValue
+    ? City.getCitiesOfState(countryValue, stateValue).map((c) => c.name)
+    : [];
+  const selectedCountry = COUNTRIES.find((c) => c.code === countryValue);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -90,11 +65,11 @@ export const LocationSelect: React.FC<LocationSelectProps> = ({
           id="state"
           value={stateValue || ''}
           onChange={(e) => onStateChange(e.target.value)}
-          disabled={disabled || !selectedCountry}
+          disabled={disabled || !selectedCountry || states.length === 0}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white"
         >
           <option value="">Select State</option>
-          {selectedCountry?.states.map((state) => (
+          {states.map((state) => (
             <option key={state.code} value={state.code}>
               {state.name}
             </option>
@@ -111,11 +86,11 @@ export const LocationSelect: React.FC<LocationSelectProps> = ({
           id="city"
           value={cityValue || ''}
           onChange={(e) => onCityChange(e.target.value)}
-          disabled={disabled || !selectedState}
+          disabled={disabled || !stateValue}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white"
         >
           <option value="">Select City</option>
-          {selectedState?.cities.map((city: string) => (
+          {cities.map((city) => (
             <option key={city} value={city}>
               {city}
             </option>

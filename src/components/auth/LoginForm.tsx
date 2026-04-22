@@ -8,6 +8,7 @@ import { AppDispatch, RootState } from '../../lib/store';
 import { login, clearError } from '../../lib/slices/authSlice';
 import { LoginInput } from '../../graphql/auth';
 import { showSuccessToast, showErrorToast } from '../../lib/toast';
+import { PasswordInput } from '../PasswordInput';
 
 const LoginForm = () => {
   const router = useRouter();
@@ -112,19 +113,16 @@ const LoginForm = () => {
               <label htmlFor="password" className="sr-only">
                 Password
               </label>
-              <input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                aria-required="true"
-                aria-label="Password"
-                className="appearance-none rounded-none relative block w-full px-3 py-3 border-2 border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-colors duration-200"
-                placeholder="Password"
                 value={formData.password}
                 onChange={handleChange}
-                // Keep onBlur trimming for final cleanup
+                placeholder="Password"
+                required
+                autoComplete="current-password"
+                ariaLabel="Password"
+                className="appearance-none rounded-none relative block w-full px-3 py-3 border-2 border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-colors duration-200"
               />
             </div>
           </div>

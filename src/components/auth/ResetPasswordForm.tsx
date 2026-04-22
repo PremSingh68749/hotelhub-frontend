@@ -8,6 +8,7 @@ import { AppDispatch, RootState } from '../../lib/store';
 import { resetPassword, clearError } from '../../lib/slices/authSlice';
 import { ResetPasswordInput } from '../../graphql/auth';
 import { showSuccessToast, showErrorToast } from '../../lib/toast';
+import { PasswordInput } from '../PasswordInput';
 
 const ResetPasswordForm = () => {
   const router = useRouter();
@@ -151,17 +152,16 @@ const ResetPasswordForm = () => {
               <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
                 New Password
               </label>
-              <input
+              <PasswordInput
                 id="newPassword"
                 name="newPassword"
-                type="password"
-                autoComplete="new-password"
-                required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="New password"
                 value={formData.newPassword}
                 onChange={handleChange}
+                placeholder="New password"
+                required
+                autoComplete="new-password"
                 disabled={isLoading}
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               />
             </div>
 
@@ -169,17 +169,16 @@ const ResetPasswordForm = () => {
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
                 Confirm Password
               </label>
-              <input
+              <PasswordInput
                 id="confirmPassword"
                 name="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="Confirm new password"
                 value={confirmPassword}
                 onChange={handleConfirmPasswordChange}
+                placeholder="Confirm new password"
+                required
+                autoComplete="new-password"
                 disabled={isLoading}
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               />
             </div>
           </div>

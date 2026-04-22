@@ -11,6 +11,7 @@ import { CreateHotelWithUrlsInput, ImageUrlInput, CreateHotelResponse } from '..
 import { StarRating } from '../../../components/StarRating';
 import { CustomPhoneInput } from '../../../components/PhoneInput';
 import { LocationSelect } from '../../../components/LocationSelect';
+import { IndiaPincodeAutocomplete } from '../../../components/IndiaPincodeAutocomplete';
 import Link from 'next/link';
 
 export default function CreateHotelForm() {
@@ -18,6 +19,8 @@ export default function CreateHotelForm() {
   const { user } = useSelector((state: RootState) => state.auth);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ratingError, setRatingError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -29,7 +32,7 @@ export default function CreateHotelForm() {
     address: '',
     city: '',
     state: '',
-    country: '',
+    country: 'IN',
     postalCode: '',
     phone: '',
     email: '',
@@ -79,6 +82,7 @@ export default function CreateHotelForm() {
     setUploadedFiles(files);
     setIsUploading(true);
     setError(null);
+    setImageError(null); // Clear image error when user uploads files
 
     try {
       const uploadedUrls = await fileUploadService.uploadHotelImages(files);
@@ -170,6 +174,10 @@ export default function CreateHotelForm() {
       ...prev,
       rating
     }));
+    // Clear rating error when user selects a rating
+    if (rating > 0) {
+      setRatingError(null);
+    }
   };
 
   const handlePhoneChange = (phone: string) => {
@@ -183,6 +191,16 @@ export default function CreateHotelForm() {
     setFormData((prev: CreateHotelWithUrlsInput) => ({
       ...prev,
       [field]: value
+    }));
+  };
+
+  const handlePincodeChange = (pincodeInfo: any) => {
+    setFormData((prev: CreateHotelWithUrlsInput) => ({
+      ...prev,
+      postalCode: pincodeInfo.pincode,
+      city: pincodeInfo.city,
+      state: pincodeInfo.state,
+      country: pincodeInfo.country
     }));
   };
 
@@ -211,6 +229,20 @@ export default function CreateHotelForm() {
     e.preventDefault();
     e.stopPropagation(); // Prevent event bubbling
     
+    // Validate required fields
+    if (!formData.rating || formData.rating === 0) {
+      setRatingError('Please select a hotel rating');
+      setIsLoading(false);
+      return;
+    }
+    
+    // Validate images (minimum 1 required)
+    if (!formData.images || !formData.images.images || formData.images.images.length === 0) {
+      setImageError('At least 1 hotel image is required');
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
 
@@ -222,7 +254,7 @@ export default function CreateHotelForm() {
         variables: {
           input: {
             ...formData,
-            rating: formData.rating && formData.rating > 0 ? parseFloat(formData.rating.toFixed(1)) : undefined,
+            rating: parseFloat(formData.rating.toFixed(1)),
             totalRooms: formData.totalRooms || undefined
           }
         }
@@ -401,35 +433,15 @@ export default function CreateHotelForm() {
                 <p id="address-help" className="mt-1 text-sm text-gray-500">Complete street address including suite/apartment number</p>
               </div>
 
-              <LocationSelect
-                  countryValue={formData.country}
-                  stateValue={formData.state}
-                  cityValue={formData.city}
-                  onCountryChange={(value) => handleLocationChange('country', value)}
-                  onStateChange={(value) => handleLocationChange('state', value)}
-                  onCityChange={(value) => handleLocationChange('city', value)}
-                  disabled={isLoading}
-                />
-
-              
-              <div>
-                <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-2">
-                  Postal Code <span className="text-red-500" aria-label="required">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="postalCode"
-                  name="postalCode"
-                  required
-                  aria-required="true"
-                  aria-describedby="postalCode-help"
-                  value={formData.postalCode}
-                  onChange={handleInputChange}
-                  placeholder="10001"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500"
-                />
-                <p id="postalCode-help" className="mt-1 text-sm text-gray-500">ZIP or postal code</p>
-              </div>
+              <IndiaPincodeAutocomplete
+                onPincodeChange={handlePincodeChange}
+                onCityChange={(city: string) => handleLocationChange('city', city)}
+                onStateChange={(state: string) => handleLocationChange('state', state)}
+                onCountryChange={(country: string) => handleLocationChange('country', country)}
+                disabled={isLoading}
+                placeholder="Enter 6-digit PIN code"
+                className="w-full"
+              />
             </div>
           </div>
 
@@ -440,13 +452,18 @@ export default function CreateHotelForm() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hotel Rating
+                  Hotel Rating <span className="text-red-500" aria-label="required">*</span>
                 </label>
                 <StarRating
                   rating={formData.rating || 0}
                   onRatingChange={handleRatingChange}
                   size="md"
                 />
+                {ratingError && (
+                  <p className="mt-1 text-sm text-red-600" id="rating-error">
+                    {ratingError}
+                  </p>
+                )}
               </div>
               <div>
                 <label htmlFor="totalRooms" className="block text-sm font-medium text-gray-700 mb-2">
@@ -537,7 +554,7 @@ export default function CreateHotelForm() {
 
           {/* Images */}
           <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Hotel Images</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Hotel Images <span className="text-red-500" aria-label="required">*</span></h2>
 
             {formData.images?.images?.map((image: ImageUrlInput, index: number) => (
               <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4">
@@ -596,6 +613,12 @@ export default function CreateHotelForm() {
                     file:bg-indigo-50 file:text-indigo-700
                     hover:file:bg-indigo-100"
                 />
+                
+                {imageError && (
+                  <p className="text-sm text-red-600" id="image-error">
+                    {imageError}
+                  </p>
+                )}
                 
                 {isUploading && (
                   <div className="text-sm text-blue-600 flex items-center">
