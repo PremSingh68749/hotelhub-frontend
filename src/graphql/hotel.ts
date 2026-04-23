@@ -96,6 +96,8 @@ export const GET_HOTEL_BY_ID_QUERY = gql`
       email
       website
       description
+      rating
+      totalReviews
       mealPlan
       propertyType
       checkInTime
@@ -103,10 +105,26 @@ export const GET_HOTEL_BY_ID_QUERY = gql`
       cancellationPolicy
       petPolicy
       parkingInfo
+      amenities {
+        id
+        name
+        description
+        icon
+        isAvailable
+      }
       isActive
       isVerified
+      ownerId
       createdAt
       updatedAt
+      images {
+        id
+        url
+        altText
+        caption
+        isPrimary
+        sortOrder
+      }
     }
   }
 `;
@@ -302,8 +320,8 @@ export const TOGGLE_HOTEL_ACTIVE_STATUS_MUTATION = gql`
 `;
 
 export const DELETE_HOTEL_MUTATION = gql`
-  mutation DeleteHotel($id: Int!, $ownerId: Int!) {
-    deleteHotel(id: $id, ownerId: $ownerId) {
+  mutation DeleteHotel($id: Int!) {
+    deleteHotel(id: $id) {
       success
       message
     }
@@ -338,11 +356,20 @@ export interface Hotel {
   cancellationPolicy?: string;
   petPolicy?: string;
   parkingInfo?: string;
+  amenities?: HotelAmenity[];
   ownerId?: number;
   createdAt: string;
   updatedAt: string;
   images?: HotelImage[];
   roomTypes?: RoomType[];
+}
+
+export interface HotelAmenity {
+  id: number;
+  name: string;
+  description?: string;
+  icon?: string;
+  isAvailable: boolean;
 }
 
 export interface HotelImage {
@@ -382,24 +409,12 @@ export interface CreateHotelWithUrlsInput {
   totalRooms?: number;
   checkInTime?: string;
   checkOutTime?: string;
-  hasParking?: boolean;
-  hasWiFi?: boolean;
-  hasPool?: boolean;
-  hasGym?: boolean;
-  hasSpa?: boolean;
-  hasRestaurant?: boolean;
-  hasBar?: boolean;
-  hasRoomService?: boolean;
-  hasMeetingRooms?: boolean;
-  hasBusinessCenter?: boolean;
-  hasPetFriendly?: boolean;
-  hasAirportShuttle?: boolean;
-  hasConcierge?: boolean;
-  has24HourFrontDesk?: boolean;
-  hasAirConditioning?: boolean;
-  hasHeating?: boolean;
-  hasElevator?: boolean;
-  hasDisabledAccess?: boolean;
+  mealPlan?: string;
+  propertyType?: string;
+  cancellationPolicy?: string;
+  petPolicy?: string;
+  parkingInfo?: string;
+  amenities?: string[];
   images?: MultipleImageUrlInput;
 }
 
@@ -418,24 +433,12 @@ export interface UpdateHotelWithUrlsInput {
   totalRooms?: number;
   checkInTime?: string;
   checkOutTime?: string;
-  hasParking?: boolean;
-  hasWiFi?: boolean;
-  hasPool?: boolean;
-  hasGym?: boolean;
-  hasSpa?: boolean;
-  hasRestaurant?: boolean;
-  hasBar?: boolean;
-  hasRoomService?: boolean;
-  hasMeetingRooms?: boolean;
-  hasBusinessCenter?: boolean;
-  hasPetFriendly?: boolean;
-  hasAirportShuttle?: boolean;
-  hasConcierge?: boolean;
-  has24HourFrontDesk?: boolean;
-  hasAirConditioning?: boolean;
-  hasHeating?: boolean;
-  hasElevator?: boolean;
-  hasDisabledAccess?: boolean;
+  mealPlan?: string;
+  propertyType?: string;
+  cancellationPolicy?: string;
+  petPolicy?: string;
+  parkingInfo?: string;
+  amenities?: string[];
   newImages?: MultipleImageUrlInput;
   deleteImageIds?: number[];
 }

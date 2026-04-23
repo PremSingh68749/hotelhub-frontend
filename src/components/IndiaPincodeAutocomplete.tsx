@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import postalCodesIndia from 'postalcodes-india';
 import { Country, State, City } from 'country-state-city';
 
@@ -20,6 +20,7 @@ interface IndiaPincodeAutocompleteProps {
   disabled?: boolean;
   placeholder?: string;
   className?: string;
+  initialPincode?: string;
 }
 
 export const IndiaPincodeAutocomplete: React.FC<IndiaPincodeAutocompleteProps> = ({
@@ -29,13 +30,19 @@ export const IndiaPincodeAutocomplete: React.FC<IndiaPincodeAutocompleteProps> =
   onCountryChange,
   disabled = false,
   placeholder = "Enter 6-digit PIN code",
-  className = ""
+  className = "",
+  initialPincode = ""
 }) => {
-  const [pincode, setPincode] = useState('');
+  const [pincode, setPincode] = useState(initialPincode);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [pincodeData, setPincodeData] = useState<IndiaPincodeInfo | null>(null);
   const [showToast, setShowToast] = useState(false);
+  const hasInitialized = useRef(false);
+
+  // Use refs to stabilize callbacks
+  const callbacksRef = useRef({ onPincodeChange, onCityChange, onStateChange, onCountryChange });
+  callbacksRef.current = { onPincodeChange, onCityChange, onStateChange, onCountryChange };
 
   const handlePincodeInput = useCallback(async (code: string) => {
     setPincode(code);
@@ -129,11 +136,11 @@ export const IndiaPincodeAutocomplete: React.FC<IndiaPincodeAutocompleteProps> =
         console.log('India PIN code data:', pincodeInfo);
         setPincodeData(pincodeInfo);
         
-        // Update all fields with proper dependencies
-        onPincodeChange(pincodeInfo);
-        onCityChange(pincodeInfo.city);
-        onStateChange(pincodeInfo.state);
-        onCountryChange(pincodeInfo.country);
+        // Update all fields using refs to avoid dependency issues
+        callbacksRef.current.onPincodeChange(pincodeInfo);
+        callbacksRef.current.onCityChange(pincodeInfo.city);
+        callbacksRef.current.onStateChange(pincodeInfo.state);
+        callbacksRef.current.onCountryChange(pincodeInfo.country);
         
         setError('');
       } else {
@@ -146,7 +153,7 @@ export const IndiaPincodeAutocomplete: React.FC<IndiaPincodeAutocompleteProps> =
     } finally {
       setIsLoading(false);
     }
-  }, [onPincodeChange, onCityChange, onStateChange, onCountryChange]);
+  }, []);
 
   // Auto-hide toast after 3 seconds
   useEffect(() => {
@@ -155,10 +162,21 @@ export const IndiaPincodeAutocomplete: React.FC<IndiaPincodeAutocompleteProps> =
       const timer = setTimeout(() => {
         setShowToast(false);
       }, 3000);
-      
+
       return () => clearTimeout(timer);
     }
   }, [pincodeData, error]);
+
+  // Validate initial pincode when it changes (e.g., when API data loads)
+  useEffect(() => {
+    const validateInitialPincode = async () => {
+      if (initialPincode && initialPincode.length === 6 && !hasInitialized.current) {
+        hasInitialized.current = true;
+        await handlePincodeInput(initialPincode);
+      }
+    };
+    validateInitialPincode();
+  }, [initialPincode, handlePincodeInput]);
 
   // Get countries, states, and cities for dropdowns
   const countries = Country.getAllCountries().map((c) => ({ code: c.isoCode, name: c.name }));

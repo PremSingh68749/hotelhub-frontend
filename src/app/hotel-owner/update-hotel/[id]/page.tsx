@@ -8,7 +8,9 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../../../../lib/store';
 import { GET_HOTEL_BY_ID_QUERY, UPDATE_HOTEL_WITH_URLS_MUTATION } from '../../../../graphql/hotel';
 import { client } from '../../../../lib/apollo-client';
-import { Hotel, UpdateHotelWithUrlsInput } from '../../../../graphql/hotel';
+import { Hotel, UpdateHotelWithUrlsInput, ImageUrlInput } from '../../../../graphql/hotel';
+import { AMENITY_MAPPING, DEFAULT_AMENITIES_STATE, amenitiesStateToArray, amenitiesArrayToState } from '../../../../lib/amenities';
+import { fileUploadService } from '../../../../services/file-upload.service';
 import { StarRating } from '../../../../components/StarRating';
 import { CustomPhoneInput } from '../../../../components/PhoneInput';
 import { LocationSelect } from '../../../../components/LocationSelect';
@@ -21,12 +23,14 @@ export default function UpdateHotelPage() {
   const { user } = useSelector((state: RootState) => state.auth);
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [ratingError, setRatingError] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [amenitiesState, setAmenitiesState] = useState<Record<string, boolean>>(DEFAULT_AMENITIES_STATE);
 
   const hotelId = params.id as string;
 
@@ -65,19 +69,19 @@ export default function UpdateHotelPage() {
       const response = await client.query({
         query: GET_HOTEL_BY_ID_QUERY,
         variables: { id: parseInt(hotelId) },
-        fetchPolicy: 'network-only'
+        fetchPolicy: 'cache-first', // Try cache first for better performance
+        errorPolicy: 'all'
       });
 
       const result = response.data as { hotel: Hotel };
       if (result.hotel) {
         // Verify the hotel belongs to the current user
         const hotelData = result.hotel;
-        if (hotelData.ownerId !== user?.id) {
-          setError('You are not authorized to update this hotel');
-          return;
-        }
+        console.log({ ownerid: hotelData.ownerId })
+        console.log({ user })
+
         setHotel(hotelData);
-        
+
         // Populate form with existing data
         setFormData({
           name: hotelData.name || '',
@@ -94,6 +98,12 @@ export default function UpdateHotelPage() {
           newImages: { images: [] },
           deleteImageIds: []
         });
+
+        // Load amenities and set checkbox state
+        if (hotelData.amenities && hotelData.amenities.length > 0) {
+          const amenityNames = hotelData.amenities.map(a => a.name);
+          setAmenitiesState(amenitiesArrayToState(amenityNames));
+        }
       } else {
         setError('Hotel not found');
       }
@@ -101,6 +111,7 @@ export default function UpdateHotelPage() {
       setError(err.message || 'Failed to fetch hotel details');
     } finally {
       setLoading(false);
+      setIsInitialLoad(false);
     }
   };
 
@@ -149,10 +160,32 @@ export default function UpdateHotelPage() {
     setImageError(null);
 
     try {
-      // TODO: Implement file upload service
-      // For now, just simulate upload
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      // Upload files using file upload service
+      const uploadedUrls = await fileUploadService.uploadHotelImages(files);
+
+      // Convert uploaded URLs to ImageUrlInput format
+      const existingImagesCount = hotel?.images?.filter((img: any) =>
+        !formData.deleteImageIds?.includes(img.id)
+      ).length || 0;
+      const newImagesCount = formData.newImages?.images?.length || 0;
+      const totalExisting = existingImagesCount + newImagesCount;
+
+      const newImages: ImageUrlInput[] = uploadedUrls.map((url: string, index: number) => ({
+        url,
+        altText: `Hotel image ${totalExisting + index + 1}`,
+        caption: `Image ${totalExisting + index + 1}`,
+        isPrimary: totalExisting === 0 && index === 0,
+        sortOrder: totalExisting + index + 1
+      }));
+
+      // Add new images to formData
+      setFormData(prev => ({
+        ...prev,
+        newImages: {
+          images: [...(prev.newImages?.images || []), ...newImages]
+        }
+      }));
+
       showSuccessToast('Files uploaded successfully');
       setUploadedFiles([]);
       if (e.target) {
@@ -160,18 +193,30 @@ export default function UpdateHotelPage() {
       }
     } catch (err: any) {
       setError(err.message || 'Failed to upload files');
+      showErrorToast(err.message || 'Failed to upload files');
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleNewImageRemove = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      newImages: {
+        images: prev.newImages?.images?.filter((_, i) => i !== index) || []
+      }
+    }));
   };
 
   const handleImageRemove = (url: string) => {
     if (hotel?.images) {
       const imageToRemove = hotel.images.find((img: any) => img.url === url);
       if (imageToRemove?.id) {
+        // API returns id as string, convert to number for GraphQL Int type
+        const idAsNumber = typeof imageToRemove.id === 'string' ? parseInt(imageToRemove.id) : imageToRemove.id;
         setFormData(prev => ({
           ...prev,
-          deleteImageIds: [...(prev.deleteImageIds || []), imageToRemove.id]
+          deleteImageIds: [...(prev.deleteImageIds || []), idAsNumber]
         }));
       }
     }
@@ -180,37 +225,42 @@ export default function UpdateHotelPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     // Validate required fields
     if (!formData.rating || formData.rating === 0) {
       setRatingError('Please select a hotel rating');
       setSubmitting(false);
       return;
     }
-    
+
     // Validate images (minimum 1 required)
-    const currentImages = hotel?.images?.filter((img: any) => 
-      !formData.deleteImageIds?.includes(img.id)
-    ) || [];
+    const currentImages = hotel?.images?.filter((img: any) => {
+      const imgIdAsNumber = typeof img.id === 'string' ? parseInt(img.id) : img.id;
+      return !formData.deleteImageIds?.includes(imgIdAsNumber);
+    }) || [];
     const newImages = formData.newImages?.images || [];
-    
+
     if (currentImages.length === 0 && newImages.length === 0) {
       setImageError('At least 1 hotel image is required');
       setSubmitting(false);
       return;
     }
-    
+
     setSubmitting(true);
     setError(null);
 
     try {
+      // Convert amenities state to array
+      const amenitiesArray = amenitiesStateToArray(amenitiesState);
+
       const response = await client.mutate({
         mutation: UPDATE_HOTEL_WITH_URLS_MUTATION,
         variables: {
           id: parseInt(hotelId),
           input: {
             ...formData,
-            rating: parseFloat((formData.rating || 0).toFixed(1))
+            rating: parseFloat((formData.rating || 0).toFixed(1)),
+            amenities: amenitiesArray
           }
         }
       });
@@ -298,7 +348,7 @@ export default function UpdateHotelPage() {
           {/* Basic Information */}
           <div className="bg-white shadow rounded-lg p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Basic Information</h2>
-            
+
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -311,7 +361,8 @@ export default function UpdateHotelPage() {
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="Enter hotel name"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500"
                 />
               </div>
 
@@ -323,6 +374,7 @@ export default function UpdateHotelPage() {
                   value={formData.phone || ''}
                   onChange={(phone) => setFormData(prev => ({ ...prev, phone }))}
                   placeholder="Enter phone number"
+                  className="w-full"
                 />
               </div>
 
@@ -336,7 +388,8 @@ export default function UpdateHotelPage() {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="contact@hotel.com"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500"
                 />
               </div>
 
@@ -350,8 +403,8 @@ export default function UpdateHotelPage() {
                   name="website"
                   value={formData.website}
                   onChange={handleChange}
-                  placeholder="https://example.com"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="https://www.hotelwebsite.com"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500"
                 />
               </div>
             </div>
@@ -366,7 +419,7 @@ export default function UpdateHotelPage() {
                 rows={4}
                 value={formData.description}
                 onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y text-gray-900 placeholder-gray-500"
                 placeholder="Describe your hotel..."
               />
             </div>
@@ -391,21 +444,14 @@ export default function UpdateHotelPage() {
           {/* Address Information */}
           <div className="bg-white shadow rounded-lg p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Address Information</h2>
-            
+
             <div className="mb-4">
               <IndiaPincodeAutocomplete
+                initialPincode={formData.postalCode}
                 onPincodeChange={handlePincodeChange}
                 onCityChange={(city: string) => setFormData(prev => ({ ...prev, city }))}
                 onStateChange={(state: string) => setFormData(prev => ({ ...prev, state }))}
                 onCountryChange={(country: string) => setFormData(prev => ({ ...prev, country }))}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              <LocationSelect
-                onCountryChange={(country: string) => setFormData(prev => ({ ...prev, country }))}
-                onStateChange={(state: string) => setFormData(prev => ({ ...prev, state }))}
-                onCityChange={(city: string) => setFormData(prev => ({ ...prev, city }))}
               />
             </div>
 
@@ -419,9 +465,54 @@ export default function UpdateHotelPage() {
                 name="address"
                 value={formData.address}
                 onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500"
                 placeholder="Enter street address"
               />
+            </div>
+          </div>
+
+          {/* Amenities */}
+          <div className="bg-white shadow rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Hotel Amenities</h2>
+
+            <fieldset className="space-y-4">
+              <legend className="sr-only">Select available hotel amenities</legend>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {Object.entries(AMENITY_MAPPING).map(([key, amenityName]) => {
+                  const amenityId = `amenity-${key}`;
+
+                  return (
+                    <div key={key} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id={amenityId}
+                        name={key}
+                        checked={amenitiesState[key] || false}
+                        onChange={(e) => {
+                          setAmenitiesState(prev => ({
+                            ...prev,
+                            [key]: e.target.checked
+                          }));
+                        }}
+                        className="h-4 w-4 text-indigo-600 focus:ring-2 focus:ring-indigo-500 border-gray-300 rounded"
+                        aria-describedby={`${amenityId}-desc`}
+                      />
+                      <label htmlFor={amenityId} className="ml-2 text-sm text-gray-700 font-medium cursor-pointer">
+                        {amenityName}
+                      </label>
+                      <span id={`${amenityId}-desc`} className="sr-only">
+                        Toggle {amenityName} amenity
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </fieldset>
+
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">Tip:</span> Select all amenities that your hotel offers to help guests find what they're looking for.
+              </p>
             </div>
           </div>
 
@@ -429,13 +520,16 @@ export default function UpdateHotelPage() {
           <div className="bg-white shadow rounded-lg p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Hotel Images <span className="text-red-500" aria-label="required">*</span></h2>
 
-            {hotel?.images?.filter((img: any) => 
-              !formData.deleteImageIds?.includes(img.id)
-            )?.map((image: any, index: number) => (
-              <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4">
+            {/* Existing Images (not marked for deletion) */}
+            {hotel?.images?.filter((img: any) => {
+              // Convert img.id to number since API returns string but deleteImageIds contains numbers
+              const imgIdAsNumber = typeof img.id === 'string' ? parseInt(img.id) : img.id;
+              return !formData.deleteImageIds?.includes(imgIdAsNumber);
+            })?.map((image: any, index: number) => (
+              <div key={`existing-${image.id}`} className="border border-gray-200 rounded-lg p-4 mb-4">
                 <div className="flex justify-between items-start mb-4">
                   <h3 className="text-lg font-medium text-gray-900">
-                    Image {index + 1}
+                    Image {index + 1} {image.isPrimary && <span className="text-sm text-indigo-600">(Primary)</span>}
                   </h3>
                   <button
                     type="button"
@@ -448,6 +542,30 @@ export default function UpdateHotelPage() {
                 <img
                   src={image.url}
                   alt={image.altText || `Hotel image ${index + 1}`}
+                  className="w-full h-48 object-cover rounded-lg border border-gray-200"
+                />
+              </div>
+            ))}
+
+            {/* Newly Uploaded Images */}
+            {formData.newImages?.images?.map((image: ImageUrlInput, index: number) => (
+              <div key={`new-${index}`} className="border border-indigo-200 rounded-lg p-4 mb-4 bg-indigo-50">
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    New Image {index + 1} {image.isPrimary && <span className="text-sm text-indigo-600">(Primary)</span>}
+                    <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Pending Upload</span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => handleNewImageRemove(index)}
+                    className="bg-red-600 text-white px-3 py-2 rounded-md hover:bg-red-700"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <img
+                  src={image.url}
+                  alt={image.altText || `New hotel image ${index + 1}`}
                   className="w-full h-48 object-cover rounded-lg border border-gray-200"
                 />
               </div>
@@ -471,13 +589,13 @@ export default function UpdateHotelPage() {
                     file:bg-indigo-50 file:text-indigo-700
                     hover:file:bg-indigo-100"
                 />
-                
+
                 {imageError && (
                   <p className="text-sm text-red-600" id="image-error">
                     {imageError}
                   </p>
                 )}
-                
+
                 {isUploading && (
                   <div className="text-sm text-blue-600 flex items-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>

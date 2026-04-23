@@ -6,11 +6,12 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../../lib/store';
-import { GET_HOTEL_BY_ID_QUERY } from '../../../../graphql/hotel';
+import { GET_HOTEL_BY_ID_QUERY, DELETE_HOTEL_MUTATION } from '../../../../graphql/hotel';
 import { client } from '../../../../lib/apollo-client';
 import { Hotel } from '../../../../graphql/hotel';
 import { StarRating } from '../../../../components/StarRating';
 import { showSuccessToast, showErrorToast } from '../../../../lib/toast';
+import HotelDetailSkeleton from '../../../../components/HotelDetailSkeleton';
 
 export default function ViewHotelPage() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function ViewHotelPage() {
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const hotelId = params.id as string;
 
@@ -40,17 +42,16 @@ export default function ViewHotelPage() {
       const response = await client.query({
         query: GET_HOTEL_BY_ID_QUERY,
         variables: { id: parseInt(hotelId) },
-        fetchPolicy: 'network-only'
+        fetchPolicy: 'cache-first', // Try cache first for better performance
+        errorPolicy: 'all'
       });
 
-      const result = response.data as { hotel: Hotel };
-      if (result.hotel) {
-        // Verify the hotel belongs to the current user
+      const result = response.data as { hotel?: Hotel } | undefined;
+      if (result?.hotel) {
         const hotelData = result.hotel;
-        if (hotelData.ownerId !== user?.id) {
-          setError('You are not authorized to view this hotel');
-          return;
-        }
+        console.log('Hotel data:', hotelData);
+        console.log('User ID:', user?.id);
+        console.log({user})
         setHotel(hotelData);
       } else {
         setError('Hotel not found');
@@ -59,6 +60,7 @@ export default function ViewHotelPage() {
       setError(err.message || 'Failed to fetch hotel details');
     } finally {
       setLoading(false);
+      setIsInitialLoad(false);
     }
   };
 
@@ -68,23 +70,27 @@ export default function ViewHotelPage() {
     }
 
     try {
-      // TODO: Implement delete hotel mutation
-      showSuccessToast('Hotel deleted successfully');
-      router.push('/hotel-owner');
+      const response = await client.mutate({
+        mutation: DELETE_HOTEL_MUTATION,
+        variables: {
+          id: parseInt(hotelId)
+        }
+      });
+
+      const deleteResult = response.data as { deleteHotel: { success: boolean; message: string } };
+      if (deleteResult?.deleteHotel?.success) {
+        showSuccessToast(deleteResult.deleteHotel.message || 'Hotel deleted successfully');
+        router.push('/hotel-owner');
+      } else {
+        showErrorToast('Failed to delete hotel');
+      }
     } catch (err: any) {
       showErrorToast(err.message || 'Failed to delete hotel');
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading hotel details...</p>
-        </div>
-      </div>
-    );
+  if (loading && isInitialLoad) {
+    return <HotelDetailSkeleton />;
   }
 
   if (error) {
@@ -235,6 +241,27 @@ export default function ViewHotelPage() {
               </div>
             </div>
           </div>
+
+          {/* Amenities */}
+          {hotel.amenities && hotel.amenities.length > 0 && (
+            <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
+              <h4 className="text-sm font-medium text-gray-500 mb-4">Amenities</h4>
+              <div className="flex flex-wrap gap-2">
+                {hotel.amenities.map((amenity) => (
+                  <span
+                    key={amenity.id}
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${
+                      amenity.isAvailable
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {amenity.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Hotel Images */}
           {hotel.images && hotel.images.length > 0 && (

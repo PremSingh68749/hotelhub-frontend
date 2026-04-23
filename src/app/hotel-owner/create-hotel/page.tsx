@@ -8,6 +8,7 @@ import { CREATE_HOTEL_WITH_URLS_MUTATION } from '../../../graphql/hotel';
 import { client } from '../../../lib/apollo-client';
 import { fileUploadService } from '../../../services/file-upload.service';
 import { CreateHotelWithUrlsInput, ImageUrlInput, CreateHotelResponse } from '../../../graphql/hotel';
+import { AMENITY_MAPPING, DEFAULT_AMENITIES_STATE, amenitiesStateToArray } from '../../../lib/amenities';
 import { StarRating } from '../../../components/StarRating';
 import { CustomPhoneInput } from '../../../components/PhoneInput';
 import { LocationSelect } from '../../../components/LocationSelect';
@@ -24,6 +25,7 @@ export default function CreateHotelForm() {
   const [success, setSuccess] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [amenitiesState, setAmenitiesState] = useState<Record<string, boolean>>(DEFAULT_AMENITIES_STATE);
 
   // Form state
   const [formData, setFormData] = useState<CreateHotelWithUrlsInput>({
@@ -41,24 +43,6 @@ export default function CreateHotelForm() {
     totalRooms: 0,
     checkInTime: '14:00',
     checkOutTime: '11:00',
-    hasParking: false,
-    hasWiFi: false,
-    hasPool: false,
-    hasGym: false,
-    hasSpa: false,
-    hasRestaurant: false,
-    hasBar: false,
-    hasRoomService: false,
-    hasMeetingRooms: false,
-    hasBusinessCenter: false,
-    hasPetFriendly: false,
-    hasAirportShuttle: false,
-    hasConcierge: false,
-    has24HourFrontDesk: false,
-    hasAirConditioning: false,
-    hasHeating: false,
-    hasElevator: false,
-    hasDisabledAccess: false,
     images: { images: [] }
   });
 
@@ -249,13 +233,17 @@ export default function CreateHotelForm() {
     try {
       console.log('Submitting form with data:', formData); // Debug log
       
+      // Convert amenities state to array
+      const amenitiesArray = amenitiesStateToArray(amenitiesState);
+      
       const response = await client.mutate<CreateHotelResponse>({
         mutation: CREATE_HOTEL_WITH_URLS_MUTATION,
         variables: {
           input: {
             ...formData,
             rating: parseFloat(formData.rating.toFixed(1)),
-            totalRooms: formData.totalRooms || undefined
+            totalRooms: formData.totalRooms || undefined,
+            amenities: amenitiesArray
           }
         }
       });
@@ -514,22 +502,26 @@ export default function CreateHotelForm() {
           {/* Amenities */}
           <div className="bg-white shadow rounded-lg p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Hotel Amenities</h2>
-            
+
             <fieldset className="space-y-4">
               <legend className="sr-only">Select available hotel amenities</legend>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {Object.entries(formData).filter(([key, value]) => key.startsWith('has') && typeof value === 'boolean').map(([key, value]) => {
-                  const amenityName = key.replace('has', '').replace(/([A-Z])/g, ' $1').trim();
+                {Object.entries(AMENITY_MAPPING).map(([key, amenityName]) => {
                   const amenityId = `amenity-${key}`;
-                  
+
                   return (
                     <div key={key} className="flex items-center">
                       <input
                         type="checkbox"
                         id={amenityId}
                         name={key}
-                        checked={value as boolean}
-                        onChange={handleInputChange}
+                        checked={amenitiesState[key] || false}
+                        onChange={(e) => {
+                          setAmenitiesState(prev => ({
+                            ...prev,
+                            [key]: e.target.checked
+                          }));
+                        }}
                         className="h-4 w-4 text-indigo-600 focus:ring-2 focus:ring-indigo-500 border-gray-300 rounded"
                         aria-describedby={`${amenityId}-desc`}
                       />
@@ -544,7 +536,7 @@ export default function CreateHotelForm() {
                 })}
               </div>
             </fieldset>
-            
+
             <div className="mt-4 p-3 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-600">
                 <span className="font-medium">Tip:</span> Select all amenities that your hotel offers to help guests find what they're looking for.
