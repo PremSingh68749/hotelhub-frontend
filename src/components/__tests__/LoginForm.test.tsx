@@ -179,7 +179,7 @@ describe('LoginForm Component', () => {
       },
     });
 
-    const submitButton = screen.getByRole('button');
+    const submitButton = screen.getByRole('button', { name: /sign in/i });
     expect(submitButton).toBeDisabled();
     expect(submitButton).toHaveTextContent(/signing in/i);
   });

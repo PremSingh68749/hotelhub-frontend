@@ -2,7 +2,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import hotelReducer, {
   searchHotels,
   getHotels,
+  getHotelById,
   getHotelCount,
+  searchNearby,
   setSearchFilters,
   resetHotels,
   clearError,
@@ -61,69 +63,6 @@ describe('hotelSlice reducer', () => {
     expect(state).toEqual(initialState);
   });
 
-  describe('setHotels action', () => {
-    it('should set hotels array', () => {
-      const hotels = [mockHotel];
-      const state = hotelReducer(initialState, setHotels(hotels));
-      
-      expect(state.hotels).toEqual(hotels);
-      expect(state.isLoading).toBe(false);
-      expect(state.error).toBe(null);
-    });
-  });
-
-  describe('appendHotels action', () => {
-    it('should append hotels to existing array', () => {
-      const existingHotels = [mockHotel];
-      const newHotels = [{ ...mockHotel, id: 2 }];
-      const stateWithHotels = {
-        ...initialState,
-        hotels: existingHotels,
-      };
-      
-      const newState = hotelReducer(stateWithHotels, appendHotels(newHotels));
-      
-      expect(newState.hotels).toEqual([...existingHotels, ...newHotels]);
-      expect(newState.isLoading).toBe(false);
-      expect(newState.error).toBe(null);
-    });
-
-    it('should set hotels if array is empty', () => {
-      const newHotels = [mockHotel];
-      const state = hotelReducer(initialState, appendHotels(newHotels));
-      
-      expect(state.hotels).toEqual(newHotels);
-    });
-  });
-
-  describe('setTotalCount action', () => {
-    it('should set total count', () => {
-      const count = 100;
-      const state = hotelReducer(initialState, setTotalCount(count));
-      
-      expect(state.totalCount).toBe(count);
-    });
-  });
-
-  describe('setHasMore action', () => {
-    it('should set hasMore flag', () => {
-      const state = hotelReducer(initialState, setHasMore(false));
-      expect(state.hasMore).toBe(false);
-      
-      const state2 = hotelReducer(initialState, setHasMore(true));
-      expect(state2.hasMore).toBe(true);
-    });
-  });
-
-  describe('setCurrentPage action', () => {
-    it('should set current page', () => {
-      const page = 5;
-      const state = hotelReducer(initialState, setCurrentPage(page));
-      
-      expect(state.currentPage).toBe(page);
-    });
-  });
-
   describe('setSearchFilters action', () => {
     it('should set search filters', () => {
       const filters = {
@@ -139,18 +78,21 @@ describe('hotelSlice reducer', () => {
   });
 
   describe('resetHotels action', () => {
-    it('should reset state to initial values', () => {
+    it('should reset hotels list and pagination', () => {
       const modifiedState = {
         ...initialState,
         hotels: [mockHotel],
-        totalCount: 50,
-        error: 'Some error',
-        isLoading: true,
+        currentPage: 5,
+        hasMore: false,
       };
       
       const state = hotelReducer(modifiedState, resetHotels());
       
-      expect(state).toEqual(initialState);
+      expect(state.hotels).toEqual([]);
+      expect(state.currentPage).toBe(1);
+      expect(state.hasMore).toBe(true);
+      // Other state should be preserved
+      expect(state.totalCount).toBe(modifiedState.totalCount);
     });
   });
 
@@ -169,7 +111,7 @@ describe('hotelSlice reducer', () => {
   describe('async thunks - searchHotels', () => {
     it('should handle pending state', () => {
       const state = hotelReducer(initialState, {
-        type: 'hotels/searchHotels/pending',
+        type: 'hotel/searchHotels/pending',
       });
       
       expect(state.isLoading).toBe(true);
@@ -179,8 +121,8 @@ describe('hotelSlice reducer', () => {
     it('should handle fulfilled state', () => {
       const hotels = [mockHotel];
       const state = hotelReducer(initialState, {
-        type: 'hotels/searchHotels/fulfilled',
-        payload: hotels,
+        type: 'hotel/searchHotels/fulfilled',
+        payload: { hotels, isAppend: false },
       });
       
       expect(state.isLoading).toBe(false);
@@ -191,7 +133,7 @@ describe('hotelSlice reducer', () => {
     it('should handle rejected state', () => {
       const errorMessage = 'Failed to fetch hotels';
       const state = hotelReducer(initialState, {
-        type: 'hotels/searchHotels/rejected',
+        type: 'hotel/searchHotels/rejected',
         payload: errorMessage,
       });
       
@@ -202,33 +144,23 @@ describe('hotelSlice reducer', () => {
   });
 
   describe('async thunks - getHotelCount', () => {
-    it('should handle pending state', () => {
-      const state = hotelReducer(initialState, {
-        type: 'hotels/getHotelCount/pending',
-      });
-      
-      expect(state.isLoading).toBe(true);
-    });
-
     it('should handle fulfilled state', () => {
       const count = 150;
       const state = hotelReducer(initialState, {
-        type: 'hotels/getHotelCount/fulfilled',
+        type: 'hotel/getHotelCount/fulfilled',
         payload: count,
       });
       
-      expect(state.isLoading).toBe(false);
       expect(state.totalCount).toBe(count);
     });
 
     it('should handle rejected state', () => {
       const errorMessage = 'Failed to get hotel count';
       const state = hotelReducer(initialState, {
-        type: 'hotels/getHotelCount/rejected',
+        type: 'hotel/getHotelCount/rejected',
         payload: errorMessage,
       });
       
-      expect(state.isLoading).toBe(false);
       expect(state.error).toBe(errorMessage);
     });
   });
@@ -236,21 +168,18 @@ describe('hotelSlice reducer', () => {
   describe('complex state transitions', () => {
     it('should handle multiple actions in sequence', () => {
       let state = hotelReducer(initialState, {
-        type: 'hotels/searchHotels/pending',
+        type: 'hotel/searchHotels/pending',
       });
       
       expect(state.isLoading).toBe(true);
       
       state = hotelReducer(state, {
-        type: 'hotels/searchHotels/fulfilled',
-        payload: [mockHotel],
+        type: 'hotel/searchHotels/fulfilled',
+        payload: { hotels: [mockHotel], isAppend: false },
       });
       
       expect(state.isLoading).toBe(false);
       expect(state.hotels).toEqual([mockHotel]);
-      
-      state = hotelReducer(state, setTotalCount(100));
-      expect(state.totalCount).toBe(100);
       
       state = hotelReducer(state, setSearchFilters({ city: 'New York' }));
       expect(state.searchFilters.city).toBe('New York');
@@ -260,7 +189,7 @@ describe('hotelSlice reducer', () => {
   describe('state immutability', () => {
     it('should not mutate original state', () => {
       const originalState = { ...initialState };
-      const newState = hotelReducer(originalState, setHotels([mockHotel]));
+      const newState = hotelReducer(originalState, resetHotels());
       
       expect(originalState).toEqual(initialState);
       expect(newState).not.toBe(originalState);

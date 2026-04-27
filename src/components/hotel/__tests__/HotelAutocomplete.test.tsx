@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import React from 'react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { configureStore } from '@reduxjs/toolkit';
 import { Provider } from 'react-redux';
@@ -6,15 +7,16 @@ import HotelAutocomplete from '@/components/hotel/HotelAutocomplete';
 import { ADVANCED_HOTEL_AUTOCOMPLETE_QUERY } from '@/graphql/hotel';
 import authReducer from '@/lib/slices/authSlice';
 import hotelReducer from '@/lib/slices/hotelSlice';
+import { act } from '@testing-library/react';
 
 // Mock Apollo Client
-const mockClient = {
-  query: vi.fn(),
-};
+const mockQuery = vi.fn();
 
 // Mock Apollo Context
 vi.mock('@/contexts/ApolloContext', () => ({
-  useApollo: () => mockClient,
+  useApollo: () => ({
+    query: mockQuery,
+  }),
 }));
 
 describe('HotelAutocomplete Component', () => {
@@ -38,6 +40,11 @@ describe('HotelAutocomplete Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('should render input field with correct placeholder', () => {
@@ -72,46 +79,73 @@ describe('HotelAutocomplete Component', () => {
 
   it('should not fetch suggestions for queries shorter than 2 characters', async () => {
     const mockOnChange = vi.fn();
-    mockClient.query.mockResolvedValue({
+    mockQuery.mockResolvedValue({
       data: { advancedHotelAutocomplete: ['Marriott Hotel'] },
     });
 
-    renderWithProviders(
-      <HotelAutocomplete
-        value=""
-        onChange={mockOnChange}
-      />
-    );
+    const TestWrapper = () => {
+      const [value, setValue] = React.useState('');
+      return (
+        <HotelAutocomplete
+          value={value}
+          onChange={(v) => {
+            setValue(v);
+            mockOnChange(v);
+          }}
+        />
+      );
+    };
+
+    renderWithProviders(<TestWrapper />);
 
     const input = screen.getByPlaceholderText(/search hotels/i);
-    fireEvent.change(input, { target: { value: 'M' } });
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'M' } });
+    });
 
-    // Wait for debounce
-    await waitFor(() => {
-      expect(mockClient.query).not.toHaveBeenCalled();
-    }, { timeout: 400 });
+    // Advance timers past debounce
+    await act(async () => {
+      vi.advanceTimersByTime(400);
+    });
+
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 
   it('should fetch suggestions for queries 2 characters or longer', async () => {
     const mockOnChange = vi.fn();
     const mockSuggestions = ['Marriott Hotel', 'Hilton Garden Inn'];
     
-    mockClient.query.mockResolvedValue({
+    mockQuery.mockResolvedValue({
       data: { advancedHotelAutocomplete: mockSuggestions },
     });
 
-    renderWithProviders(
-      <HotelAutocomplete
-        value=""
-        onChange={mockOnChange}
-      />
-    );
+    const TestWrapper = () => {
+      const [value, setValue] = React.useState('');
+      return (
+        <HotelAutocomplete
+          value={value}
+          onChange={(v) => {
+            setValue(v);
+            mockOnChange(v);
+          }}
+        />
+      );
+    };
+
+    renderWithProviders(<TestWrapper />);
 
     const input = screen.getByPlaceholderText(/search hotels/i);
-    fireEvent.change(input, { target: { value: 'Ma' } });
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Ma' } });
+    });
+
+    // Advance timers for debounce
+    await act(async () => {
+      vi.advanceTimersByTime(350);
+    });
 
     await waitFor(() => {
-      expect(mockClient.query).toHaveBeenCalledWith({
+      expect(mockQuery).toHaveBeenCalledWith({
         query: ADVANCED_HOTEL_AUTOCOMPLETE_QUERY,
         variables: { query: 'Ma' },
       });
@@ -122,56 +156,83 @@ describe('HotelAutocomplete Component', () => {
     const mockOnChange = vi.fn();
     const mockSuggestions = ['Marriott Hotel', 'Hilton Garden Inn'];
     
-    mockClient.query.mockResolvedValue({
+    mockQuery.mockResolvedValue({
       data: { advancedHotelAutocomplete: mockSuggestions },
     });
 
-    renderWithProviders(
-      <HotelAutocomplete
-        value=""
-        onChange={mockOnChange}
-      />
-    );
+    const TestWrapper = () => {
+      const [value, setValue] = React.useState('');
+      return (
+        <HotelAutocomplete
+          value={value}
+          onChange={(v) => {
+            setValue(v);
+            mockOnChange(v);
+          }}
+        />
+      );
+    };
+
+    renderWithProviders(<TestWrapper />);
 
     const input = screen.getByPlaceholderText(/search hotels/i);
-    fireEvent.change(input, { target: { value: 'Mar' } });
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Mar' } });
+    });
 
-    // Wait for debounce and API call
-    await waitFor(() => {
-      expect(mockClient.query).toHaveBeenCalled();
-    }, { timeout: 400 });
+    // Advance timers for debounce
+    await act(async () => {
+      vi.advanceTimersByTime(350);
+    });
 
     // Wait for suggestions to appear
     await waitFor(() => {
       expect(screen.getByText('Marriott Hotel')).toBeInTheDocument();
       expect(screen.getByText('Hilton Garden Inn')).toBeInTheDocument();
-    }, { timeout: 100 });
+    });
   });
 
   it('should hide suggestions when a suggestion is selected', async () => {
     const mockOnChange = vi.fn();
     const mockSuggestions = ['Marriott Hotel', 'Hilton Garden Inn'];
     
-    mockClient.query.mockResolvedValue({
+    mockQuery.mockResolvedValue({
       data: { advancedHotelAutocomplete: mockSuggestions },
     });
 
-    renderWithProviders(
-      <HotelAutocomplete
-        value=""
-        onChange={mockOnChange}
-      />
-    );
+    const TestWrapper = () => {
+      const [value, setValue] = React.useState('');
+      return (
+        <HotelAutocomplete
+          value={value}
+          onChange={(v) => {
+            setValue(v);
+            mockOnChange(v);
+          }}
+        />
+      );
+    };
+
+    renderWithProviders(<TestWrapper />);
 
     const input = screen.getByPlaceholderText(/search hotels/i);
-    fireEvent.change(input, { target: { value: 'Mar' } });
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Mar' } });
+    });
+
+    // Advance timers for debounce
+    await act(async () => {
+      vi.advanceTimersByTime(350);
+    });
 
     await waitFor(() => {
       expect(screen.getByText('Marriott Hotel')).toBeInTheDocument();
     });
 
     // Click on the first suggestion
-    fireEvent.click(screen.getByText('Marriott Hotel'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('Marriott Hotel'));
+    });
 
     expect(mockOnChange).toHaveBeenCalledWith('Marriott Hotel');
     
@@ -190,26 +251,43 @@ describe('HotelAutocomplete Component', () => {
       resolvePromise = resolve;
     });
     
-    mockClient.query.mockReturnValue(mockPromise);
+    mockQuery.mockReturnValue(mockPromise);
 
-    renderWithProviders(
-      <HotelAutocomplete
-        value=""
-        onChange={mockOnChange}
-      />
-    );
+    const TestWrapper = () => {
+      const [value, setValue] = React.useState('');
+      return (
+        <HotelAutocomplete
+          value={value}
+          onChange={(v) => {
+            setValue(v);
+            mockOnChange(v);
+          }}
+        />
+      );
+    };
+
+    renderWithProviders(<TestWrapper />);
 
     const input = screen.getByPlaceholderText(/search hotels/i);
-    fireEvent.change(input, { target: { value: 'Mar' } });
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Mar' } });
+    });
+
+    // Advance timers for debounce
+    await act(async () => {
+      vi.advanceTimersByTime(350);
+    });
 
     // Check for loading indicator - look for the div with animate-spin class
     await waitFor(() => {
       const loadingElement = document.querySelector('.animate-spin');
       expect(loadingElement).toBeInTheDocument();
-    }, { timeout: 100 });
+    });
 
     // Resolve the promise
-    resolvePromise!({ data: { advancedHotelAutocomplete: [] } });
+    await act(async () => {
+      resolvePromise!({ data: { advancedHotelAutocomplete: [] } });
+    });
 
     await waitFor(() => {
       const loadingElement = document.querySelector('.animate-spin');
@@ -221,35 +299,67 @@ describe('HotelAutocomplete Component', () => {
     const mockOnChange = vi.fn();
     const mockSuggestions = ['Marriott Hotel', 'Hilton Garden Inn', 'Holiday Inn'];
     
-    mockClient.query.mockResolvedValue({
+    mockQuery.mockResolvedValue({
       data: { advancedHotelAutocomplete: mockSuggestions },
     });
 
-    renderWithProviders(
-      <HotelAutocomplete
-        value=""
-        onChange={mockOnChange}
-      />
-    );
+    const TestWrapper = () => {
+      const [value, setValue] = React.useState('');
+      return (
+        <HotelAutocomplete
+          value={value}
+          onChange={(v) => {
+            setValue(v);
+            mockOnChange(v);
+          }}
+        />
+      );
+    };
+
+    renderWithProviders(<TestWrapper />);
 
     const input = screen.getByPlaceholderText(/search hotels/i);
-    fireEvent.change(input, { target: { value: 'Hotel' } });
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Hotel' } });
+    });
+
+    // Advance timers for debounce
+    await act(async () => {
+      vi.advanceTimersByTime(350);
+    });
 
     // Wait for suggestions to appear
     await waitFor(() => {
       expect(screen.getByText('Marriott Hotel')).toBeInTheDocument();
-    }, { timeout: 400 });
+    });
+
+    // Get the list items for class checking
+    const getSuggestionItem = (text: string) => {
+      const element = screen.getByText(text);
+      // The text is inside an li, use closest to find it
+      return element.closest('li');
+    };
 
     // Test arrow down navigation
-    fireEvent.keyDown(input, { key: 'ArrowDown' });
-    expect(screen.getByText('Marriott Hotel')).toHaveClass('bg-blue-100');
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'ArrowDown' });
+    });
+    await waitFor(() => {
+      expect(getSuggestionItem('Marriott Hotel')).toHaveClass('bg-blue-100');
+    });
 
     // Test arrow down again
-    fireEvent.keyDown(input, { key: 'ArrowDown' });
-    expect(screen.getByText('Hilton Garden Inn')).toHaveClass('bg-blue-100');
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'ArrowDown' });
+    });
+    await waitFor(() => {
+      expect(getSuggestionItem('Hilton Garden Inn')).toHaveClass('bg-blue-100');
+    });
 
     // Test enter key selection
-    fireEvent.keyDown(input, { key: 'Enter' });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
     expect(mockOnChange).toHaveBeenCalledWith('Hilton Garden Inn');
   });
 
@@ -257,27 +367,44 @@ describe('HotelAutocomplete Component', () => {
     const mockOnChange = vi.fn();
     const mockSuggestions = ['Marriott Hotel'];
     
-    mockClient.query.mockResolvedValue({
+    mockQuery.mockResolvedValue({
       data: { advancedHotelAutocomplete: mockSuggestions },
     });
 
-    renderWithProviders(
-      <HotelAutocomplete
-        value=""
-        onChange={mockOnChange}
-      />
-    );
+    const TestWrapper = () => {
+      const [value, setValue] = React.useState('');
+      return (
+        <HotelAutocomplete
+          value={value}
+          onChange={(v) => {
+            setValue(v);
+            mockOnChange(v);
+          }}
+        />
+      );
+    };
+
+    renderWithProviders(<TestWrapper />);
 
     const input = screen.getByPlaceholderText(/search hotels/i);
-    fireEvent.change(input, { target: { value: 'Mar' } });
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Mar' } });
+    });
+
+    // Advance timers for debounce
+    await act(async () => {
+      vi.advanceTimersByTime(350);
+    });
 
     // Wait for suggestions to appear
     await waitFor(() => {
       expect(screen.getByText('Marriott Hotel')).toBeInTheDocument();
-    }, { timeout: 400 });
+    });
 
     // Press escape key
-    fireEvent.keyDown(input, { key: 'Escape' });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Escape' });
+    });
 
     expect(screen.queryByText('Marriott Hotel')).not.toBeInTheDocument();
   });
@@ -285,21 +412,36 @@ describe('HotelAutocomplete Component', () => {
   it('should handle API errors gracefully', async () => {
     const mockOnChange = vi.fn();
     
-    mockClient.query.mockRejectedValue(new Error('Network error'));
+    mockQuery.mockRejectedValue(new Error('Network error'));
 
-    renderWithProviders(
-      <HotelAutocomplete
-        value=""
-        onChange={mockOnChange}
-      />
-    );
+    const TestWrapper = () => {
+      const [value, setValue] = React.useState('');
+      return (
+        <HotelAutocomplete
+          value={value}
+          onChange={(v) => {
+            setValue(v);
+            mockOnChange(v);
+          }}
+        />
+      );
+    };
+
+    renderWithProviders(<TestWrapper />);
 
     const input = screen.getByPlaceholderText(/search hotels/i);
-    fireEvent.change(input, { target: { value: 'Mar' } });
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Mar' } });
+    });
+
+    // Advance timers for debounce
+    await act(async () => {
+      vi.advanceTimersByTime(350);
+    });
 
     await waitFor(() => {
       expect(screen.queryByText('Marriott Hotel')).not.toBeInTheDocument();
-    }, { timeout: 400 });
+    });
 
     // Should not crash and input should still be usable
     expect(input).toBeInTheDocument();
@@ -309,31 +451,49 @@ describe('HotelAutocomplete Component', () => {
     const mockOnChange = vi.fn();
     const mockSuggestions = ['Marriott Hotel'];
     
-    mockClient.query.mockResolvedValue({
+    mockQuery.mockResolvedValue({
       data: { advancedHotelAutocomplete: mockSuggestions },
     });
 
-    renderWithProviders(
-      <HotelAutocomplete
-        value="Marriott Hotel"
-        onChange={mockOnChange}
-      />
-    );
+    const TestWrapper = () => {
+      const [value, setValue] = React.useState('Marriott Hotel');
+      return (
+        <HotelAutocomplete
+          value={value}
+          onChange={(v) => {
+            setValue(v);
+            mockOnChange(v);
+          }}
+        />
+      );
+    };
+
+    renderWithProviders(<TestWrapper />);
 
     const input = screen.getByPlaceholderText(/search hotels/i);
     
     // Focus the input (should not show suggestions since value matches selected value)
-    fireEvent.focus(input);
+    await act(async () => {
+      fireEvent.focus(input);
+    });
 
-    await waitFor(() => {
-      expect(screen.queryByText('Marriott Hotel')).not.toBeInTheDocument();
-    }, { timeout: 100 });
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+
+    expect(screen.queryByText('Marriott Hotel')).not.toBeInTheDocument();
 
     // Change the value (should show suggestions)
-    fireEvent.change(input, { target: { value: 'Marriott Hotel ' } });
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Marriott Hotel ' } });
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(350);
+    });
 
     await waitFor(() => {
-      expect(mockClient.query).toHaveBeenCalled();
+      expect(mockQuery).toHaveBeenCalled();
     });
   });
 });

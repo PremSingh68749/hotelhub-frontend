@@ -1,18 +1,18 @@
-import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import React from 'react';
+import { describe, it, expect, vi, beforeEach, Mock, afterEach } from 'vitest';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/utils';
 import UpdateHotelPage from './page';
-import { client } from '@/lib/apollo-client';
 
-// Mock the router
+// Mock the router - factory must not reference outer variables
 const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
   useParams: () => ({ id: '19' }),
 }));
 
-// Mock the apollo client
+// Mock the apollo client - using spy pattern instead of factory with outer variables
 vi.mock('@/lib/apollo-client', () => ({
   client: {
     query: vi.fn(),
@@ -27,7 +27,9 @@ vi.mock('@/services/file-upload.service', () => ({
   },
 }));
 
+// Import mocked services after mock definitions
 import { fileUploadService } from '@/services/file-upload.service';
+import { client } from '@/lib/apollo-client';
 
 // Mock toast
 vi.mock('@/lib/toast', () => ({
@@ -36,6 +38,29 @@ vi.mock('@/lib/toast', () => ({
 }));
 
 import { showSuccessToast, showErrorToast } from '@/lib/toast';
+
+// Mock IndiaPincodeAutocomplete to avoid postalcodes-india issues
+vi.mock('@/components/IndiaPincodeAutocomplete', () => ({
+  IndiaPincodeAutocomplete: ({ initialPincode, onPincodeChange, onCityChange, onStateChange, onCountryChange }: any) => (
+    <div data-testid="pincode-autocomplete">
+      <input
+        type="text"
+        value={initialPincode || ''}
+        onChange={(e) => {
+          const val = e.target.value;
+          if (val.length === 6) {
+            onPincodeChange({ pincode: val, city: 'Test City', state: 'GJ', country: 'IN' });
+            onCityChange('Test City');
+            onStateChange('GJ');
+            onCountryChange('IN');
+          }
+        }}
+        placeholder="PIN code"
+        data-testid="pincode-input"
+      />
+    </div>
+  ),
+}));
 
 const mockHotelData = {
   id: '19',
@@ -139,14 +164,14 @@ describe('UpdateHotelPage - Amenities', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Update Hotel')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /update hotel/i })).toBeInTheDocument();
     });
 
     // Change amenities
     const spaCheckbox = screen.getByLabelText('Spa') as HTMLInputElement;
     await user.click(spaCheckbox);
 
-    const updateButton = screen.getByText('Update Hotel');
+    const updateButton = screen.getByRole('button', { name: /update hotel/i });
     await user.click(updateButton);
 
     await waitFor(() => {
@@ -199,10 +224,11 @@ describe('UpdateHotelPage - Image Handling', () => {
     const removeButtons = screen.getAllByText('Remove');
     await user.click(removeButtons[0]);
 
-    // Image 1 should no longer be visible
+    // After removing first image, only 1 image remains (which is now Image 1)
     await waitFor(() => {
-      expect(screen.queryByText('Image 1')).not.toBeInTheDocument();
-      expect(screen.getByText('Image 2')).toBeInTheDocument();
+      expect(screen.getAllByText('Remove').length).toBe(1);
+      expect(screen.getByText('Image 1')).toBeInTheDocument();
+      expect(screen.queryByText('(Primary)')).not.toBeInTheDocument(); // The removed image was primary
     });
   });
 
@@ -226,7 +252,7 @@ describe('UpdateHotelPage - Image Handling', () => {
     await user.click(removeButtons[0]);
 
     // Submit form
-    const updateButton = screen.getByText('Update Hotel');
+    const updateButton = screen.getByRole('button', { name: /update hotel/i });
     await user.click(updateButton);
 
     await waitFor(() => {
@@ -258,7 +284,7 @@ describe('UpdateHotelPage - Image Handling', () => {
       expect(screen.getByText('Hotel Images')).toBeInTheDocument();
     });
 
-    const fileInput = screen.getByLabelText(/upload new images/i);
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     await user.upload(fileInput, file);
 
     await waitFor(() => {
@@ -283,11 +309,12 @@ describe('UpdateHotelPage - Image Handling', () => {
       expect(screen.getByText('Hotel Images')).toBeInTheDocument();
     });
 
-    const fileInput = screen.getByLabelText(/upload new images/i);
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     await user.upload(fileInput, file);
 
     await waitFor(() => {
-      expect(screen.getByText(/new image/i)).toBeInTheDocument();
+      // Look for the specific "New Image" heading (starts with N and has number)
+      expect(screen.getByText(/^New Image \d/i)).toBeInTheDocument();
       expect(screen.getByText(/pending upload/i)).toBeInTheDocument();
     });
   });
@@ -309,22 +336,23 @@ describe('UpdateHotelPage - Image Handling', () => {
     });
 
     // Upload image
-    const fileInput = screen.getByLabelText(/upload new images/i);
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     await user.upload(fileInput, file);
 
     await waitFor(() => {
-      expect(screen.getByText(/new image/i)).toBeInTheDocument();
+      expect(screen.getByText(/^New Image \d/i)).toBeInTheDocument();
     });
 
-    // Find and click remove on new image
-    const newImageSection = screen.getByText(/new image/i).closest('div')?.parentElement;
-    const removeButton = newImageSection?.querySelector('button');
+    // Find and click remove on new image - the newly uploaded image has a "Pending Upload" badge
+    const pendingBadge = screen.getByText(/pending upload/i);
+    const newImageCard = pendingBadge.closest('.border-indigo-200');
+    const removeButton = newImageCard?.querySelector('button');
     if (removeButton) {
       await user.click(removeButton);
     }
 
     await waitFor(() => {
-      expect(screen.queryByText(/new image/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/pending upload/i)).not.toBeInTheDocument();
     });
   });
 
@@ -348,16 +376,16 @@ describe('UpdateHotelPage - Image Handling', () => {
       expect(screen.getByText('Hotel Images')).toBeInTheDocument();
     });
 
-    // Upload new image
-    const fileInput = screen.getByLabelText(/upload new images/i);
+    // Upload new image - find input by type since label is not associated
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     await user.upload(fileInput, file);
 
     await waitFor(() => {
-      expect(screen.getByText(/new image/i)).toBeInTheDocument();
+      expect(screen.getByText(/^New Image \d/i)).toBeInTheDocument();
     });
 
     // Submit form
-    const updateButton = screen.getByText('Update Hotel');
+    const updateButton = screen.getByRole('button', { name: /update hotel/i });
     await user.click(updateButton);
 
     await waitFor(() => {
@@ -396,7 +424,7 @@ describe('UpdateHotelPage - Image Handling', () => {
     await user.click(removeButtons[1]);
 
     // Try to submit
-    const updateButton = screen.getByText('Update Hotel');
+    const updateButton = screen.getByRole('button', { name: /update hotel/i });
     await user.click(updateButton);
 
     await waitFor(() => {
@@ -428,10 +456,10 @@ describe('UpdateHotelPage - Form Submission', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Update Hotel')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /update hotel/i })).toBeInTheDocument();
     });
 
-    const updateButton = screen.getByText('Update Hotel');
+    const updateButton = screen.getByRole('button', { name: /update hotel/i });
     await user.click(updateButton);
 
     await waitFor(() => {
@@ -456,10 +484,10 @@ describe('UpdateHotelPage - Form Submission', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Update Hotel')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /update hotel/i })).toBeInTheDocument();
     });
 
-    const updateButton = screen.getByText('Update Hotel');
+    const updateButton = screen.getByRole('button', { name: /update hotel/i });
     await user.click(updateButton);
 
     await waitFor(() => {

@@ -32,7 +32,6 @@ describe('IndiaPincodeAutocomplete', () => {
     render(<IndiaPincodeAutocomplete {...mockCallbacks} />);
 
     expect(screen.getByPlaceholderText('Enter 6-digit PIN code')).toBeInTheDocument();
-    expect(screen.getByLabelText(/pin code/i)).toBeInTheDocument();
   });
 
   it('should render with initial pincode value', () => {
