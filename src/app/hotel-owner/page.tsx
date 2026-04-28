@@ -181,6 +181,20 @@ export default function HotelOwnerDashboard() {
                             {hotel.roomTypes?.length || 0} room types
                           </span>
                         </div>
+                        <div className="grid grid-cols-2 gap-2 mb-4">
+                          <Link 
+                            href={`/hotel-owner/hotels/${hotel.id}/room-types`}
+                            className="text-center bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700"
+                          >
+                            Room Types
+                          </Link>
+                          <Link 
+                            href={`/hotel-owner/hotels/${hotel.id}/rooms`}
+                            className="text-center bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700"
+                          >
+                            Rooms
+                          </Link>
+                        </div>
                         <div className="flex space-x-2">
                           <Link 
                             href={`/hotel-owner/view-hotel/${hotel.id}`}

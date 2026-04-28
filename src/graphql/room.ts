@@ -1,198 +1,111 @@
 import { gql } from '@apollo/client';
 
-// Room Mutations for Hotel Owners
-export const CREATE_ROOM_WITH_IMAGES_MUTATION = gql`
-  mutation CreateRoomWithImages($input: CreateRoomWithImagesInput!) {
-    createRoomWithImages(input: $input) {
-      id
-      roomNumber
-      floor
-      hotelId
-      roomTypeId
-      customPrice
-      description
-      notes
-      isSmokingAllowed
-      isPetFriendly
-      hasMinibar
-      hasSafe
-      hasBalcony
-      hasBathtub
-      hasShower
-      hasKitchenette
-      hasWorkDesk
-      hasTV
-      hasWiFi
-      hasAirConditioning
-      hasHeating
-      isActive
-      createdAt
-      updatedAt
-      images {
-        id
-        url
-        altText
-        caption
-        isPrimary
-        sortOrder
-      }
-    }
-  }
-`;
-
-export const UPDATE_ROOM_WITH_IMAGES_MUTATION = gql`
-  mutation UpdateRoomWithImages($id: Int!, $input: UpdateRoomWithImagesInput!) {
-    updateRoomWithImages(id: $id, input: $input) {
-      id
-      roomNumber
-      floor
-      hotelId
-      roomTypeId
-      customPrice
-      description
-      notes
-      isSmokingAllowed
-      isPetFriendly
-      hasMinibar
-      hasSafe
-      hasBalcony
-      hasBathtub
-      hasShower
-      hasKitchenette
-      hasWorkDesk
-      hasTV
-      hasWiFi
-      hasAirConditioning
-      hasHeating
-      isActive
-      createdAt
-      updatedAt
-      images {
-        id
-        url
-        altText
-        caption
-        isPrimary
-        sortOrder
-      }
-    }
-  }
-`;
-
 // Room Queries
-export const GET_ROOMS_BY_HOTEL_QUERY = gql`
-  query GetRoomsByHotel($hotelId: Int!) {
-    roomsByHotel(hotelId: $hotelId) {
+export const GET_ROOMS_QUERY = gql`
+  query GetRooms($roomTypeId: Int, $hotelId: Int) {
+    rooms(roomTypeId: $roomTypeId, hotelId: $hotelId) {
       id
       roomNumber
       floor
-      hotelId
-      roomTypeId
       customPrice
       description
-      notes
-      isSmokingAllowed
-      isPetFriendly
-      hasMinibar
-      hasSafe
-      hasBalcony
-      hasBathtub
-      hasShower
-      hasKitchenette
-      hasWorkDesk
-      hasTV
-      hasWiFi
-      hasAirConditioning
-      hasHeating
-      isActive
+      status
+      roomTypeId
+      hotelId
       createdAt
       updatedAt
-      images {
-        id
-        url
-        altText
-        caption
-        isPrimary
-        sortOrder
-      }
     }
   }
 `;
 
-export const GET_ROOMS_BY_ROOM_TYPE_QUERY = gql`
-  query GetRoomsByRoomType($roomTypeId: Int!) {
-    roomsByRoomType(roomTypeId: $roomTypeId) {
-      id
-      roomNumber
-      floor
-      hotelId
-      roomTypeId
-      customPrice
-      description
-      notes
-      isSmokingAllowed
-      isPetFriendly
-      hasMinibar
-      hasSafe
-      hasBalcony
-      hasBathtub
-      hasShower
-      hasKitchenette
-      hasWorkDesk
-      hasTV
-      hasWiFi
-      hasAirConditioning
-      hasHeating
-      isActive
-      createdAt
-      updatedAt
-      images {
-        id
-        url
-        altText
-        caption
-        isPrimary
-        sortOrder
-      }
-    }
-  }
-`;
-
-export const GET_ROOM_BY_ID_QUERY = gql`
-  query GetRoomById($id: Int!) {
+export const GET_ROOM_QUERY = gql`
+  query GetRoom($id: Int!) {
     room(id: $id) {
       id
       roomNumber
       floor
-      hotelId
-      roomTypeId
       customPrice
       description
-      notes
-      isSmokingAllowed
-      isPetFriendly
-      hasMinibar
-      hasSafe
-      hasBalcony
-      hasBathtub
-      hasShower
-      hasKitchenette
-      hasWorkDesk
-      hasTV
-      hasWiFi
-      hasAirConditioning
-      hasHeating
-      isActive
+      status
+      roomTypeId
+      hotelId
       createdAt
       updatedAt
-      images {
+    }
+  }
+`;
+
+export const SEARCH_ROOMS_QUERY = gql`
+  query SearchRooms($searchInput: SearchRoomsInput!) {
+    searchRooms(searchInput: $searchInput) {
+      id
+      roomNumber
+      floor
+      customPrice
+      description
+      status
+      roomTypeId
+      hotelId
+    }
+  }
+`;
+
+export const GET_ROOM_COUNT_QUERY = gql`
+  query GetRoomCount {
+    roomCount
+  }
+`;
+
+// Room Mutations
+export const CREATE_ROOM_MUTATION = gql`
+  mutation CreateRoom($createRoomInput: CreateRoomInput!, $roomTypeId: Int!) {
+    createRoom(createRoomInput: $createRoomInput, roomTypeId: $roomTypeId) {
+      id
+      roomNumber
+      floor
+      customPrice
+      description
+      status
+      roomTypeId
+      hotelId
+    }
+  }
+`;
+
+export const UPDATE_ROOM_MUTATION = gql`
+  mutation UpdateRoom($id: Int!, $updateRoomInput: UpdateRoomInput!, $hotelId: Int!) {
+    updateRoom(id: $id, updateRoomInput: $updateRoomInput, hotelId: $hotelId) {
+      id
+      roomNumber
+      floor
+      customPrice
+      description
+      status
+      roomTypeId
+      hotelId
+    }
+  }
+`;
+
+export const DELETE_ROOM_MUTATION = gql`
+  mutation DeleteRoom($id: Int!, $hotelId: Int!) {
+    deleteRoom(id: $id, hotelId: $hotelId) {
+      success
+      message
+      room {
         id
-        url
-        altText
-        caption
-        isPrimary
-        sortOrder
+        roomNumber
       }
+    }
+  }
+`;
+
+export const UPDATE_ROOM_STATUS_MUTATION = gql`
+  mutation UpdateRoomStatus($id: Int!, $status: String!, $hotelId: Int!) {
+    updateRoomStatus(id: $id, status: $status, hotelId: $hotelId) {
+      id
+      roomNumber
+      status
     }
   }
 `;
@@ -202,111 +115,81 @@ export interface Room {
   id: number;
   roomNumber: string;
   floor?: string;
-  hotelId?: number;
-  roomTypeId?: number;
   customPrice?: number;
   description?: string;
-  notes?: string;
-  isSmokingAllowed?: boolean;
-  isPetFriendly?: boolean;
-  hasMinibar?: boolean;
-  hasSafe?: boolean;
-  hasBalcony?: boolean;
-  hasBathtub?: boolean;
-  hasShower?: boolean;
-  hasKitchenette?: boolean;
-  hasWorkDesk?: boolean;
-  hasTV?: boolean;
-  hasWiFi?: boolean;
-  hasAirConditioning?: boolean;
-  hasHeating?: boolean;
-  isActive?: boolean;
+  status: string;
+  roomTypeId: number;
+  hotelId: number;
   createdAt: string;
   updatedAt: string;
-  images?: RoomImage[];
 }
 
-export interface RoomImage {
-  id: number;
-  url: string;
-  altText?: string;
-  caption?: string;
-  isPrimary: boolean;
-  sortOrder: number;
-}
-
-export interface CreateRoomWithImagesInput {
+export interface CreateRoomInput {
   roomNumber: string;
   floor?: string;
-  hotelId: number;
-  roomTypeId: number;
   customPrice?: number;
   description?: string;
-  notes?: string;
-  isSmokingAllowed?: boolean;
-  isPetFriendly?: boolean;
-  hasMinibar?: boolean;
-  hasSafe?: boolean;
-  hasBalcony?: boolean;
-  hasBathtub?: boolean;
-  hasShower?: boolean;
-  hasKitchenette?: boolean;
-  hasWorkDesk?: boolean;
-  hasTV?: boolean;
-  hasWiFi?: boolean;
-  hasAirConditioning?: boolean;
-  hasHeating?: boolean;
-  images?: ImageUrlInput[];
+  status?: string;
 }
 
-export interface UpdateRoomWithImagesInput {
+export interface UpdateRoomInput {
   roomNumber?: string;
   floor?: string;
   customPrice?: number;
   description?: string;
-  notes?: string;
-  isSmokingAllowed?: boolean;
-  isPetFriendly?: boolean;
-  hasMinibar?: boolean;
-  hasSafe?: boolean;
-  hasBalcony?: boolean;
-  hasBathtub?: boolean;
-  hasShower?: boolean;
-  hasKitchenette?: boolean;
-  hasWorkDesk?: boolean;
-  hasTV?: boolean;
-  hasWiFi?: boolean;
-  hasAirConditioning?: boolean;
-  hasHeating?: boolean;
-  newImages?: ImageUrlInput[];
-  deleteImageIds?: number[];
+  status?: string;
 }
 
-export interface ImageUrlInput {
-  url: string;
-  altText?: string;
-  caption?: string;
-  isPrimary?: boolean;
-  sortOrder?: number;
+export interface SearchRoomsInput {
+  hotelId?: number;
+  roomTypeId?: number;
+  roomNumber?: string;
+  floor?: string;
+  status?: string;
+  minPrice?: number;
+  maxPrice?: number;
 }
 
 // Response interfaces
 export interface CreateRoomResponse {
-  createRoomWithImages: Room;
+  createRoom: Room;
 }
 
 export interface UpdateRoomResponse {
-  updateRoomWithImages: Room;
+  updateRoom: Room;
 }
 
-export interface RoomsByHotelResponse {
-  roomsByHotel: Room[];
+export interface DeleteRoomResponse {
+  deleteRoom: {
+    success: boolean;
+    message: string;
+    room: {
+      id: number;
+      roomNumber: string;
+    };
+  };
 }
 
-export interface RoomsByRoomTypeResponse {
-  roomsByRoomType: Room[];
+export interface UpdateRoomStatusResponse {
+  updateRoomStatus: {
+    id: number;
+    roomNumber: string;
+    status: string;
+  };
 }
 
-export interface RoomByIdResponse {
+export interface RoomsResponse {
+  rooms: Room[];
+}
+
+export interface RoomResponse {
   room: Room | null;
+}
+
+export interface SearchRoomsResponse {
+  searchRooms: Room[];
+}
+
+export interface RoomCountResponse {
+  roomCount: number;
 }
