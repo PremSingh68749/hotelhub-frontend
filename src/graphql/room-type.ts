@@ -9,6 +9,9 @@ export const GET_ROOM_TYPES_QUERY = gql`
       description
       basePrice
       maxOccupancy
+      adults
+      children
+      numberOfBeds
       roomSize
       bedType
       amenities
@@ -30,6 +33,9 @@ export const GET_ROOM_TYPE_QUERY = gql`
       description
       basePrice
       maxOccupancy
+      adults
+      children
+      numberOfBeds
       roomSize
       bedType
       amenities
@@ -131,14 +137,27 @@ export interface RoomType {
   description?: string;
   basePrice: number;
   maxOccupancy: number;
+  maxAdults: number;
+  maxChildren: number;
   roomSize: number;
+  numberOfBeds: number;
   bedType: string;
   amenities: string;
+  hasAirConditioning: boolean;
+  hasHeating: boolean;
+  hasPrivateBathroom: boolean;
+  hasKitchen: boolean;
+  hasBalcony: boolean;
+  hasSeaView: boolean;
+  hasMountainView: boolean;
+  hasCityView: boolean;
+  isSmokingAllowed: boolean;
+  isPetFriendly: boolean;
   images?: string[];
-  isActive: boolean;
   hotelId: number;
   createdAt: string;
   updatedAt: string;
+  isActive: boolean;
   __typename?: string;
 }
 
@@ -147,9 +166,22 @@ export interface CreateRoomTypeInput {
   description?: string;
   basePrice: number;
   maxOccupancy: number;
+  maxAdults: number;
+  maxChildren: number;
   roomSize: number;
+  numberOfBeds: number;
   bedType: string;
   amenities: string;
+  hasAirConditioning: boolean;
+  hasHeating: boolean;
+  hasPrivateBathroom: boolean;
+  hasKitchen: boolean;
+  hasBalcony: boolean;
+  hasSeaView: boolean;
+  hasMountainView: boolean;
+  hasCityView: boolean;
+  isSmokingAllowed: boolean;
+  isPetFriendly: boolean;
   images?: string[];
   isActive?: boolean;
 }
@@ -159,9 +191,22 @@ export interface UpdateRoomTypeInput {
   description?: string;
   basePrice?: number;
   maxOccupancy?: number;
+  maxAdults?: number;
+  maxChildren?: number;
   roomSize?: number;
+  numberOfBeds?: number;
   bedType?: string;
   amenities?: string;
+  hasAirConditioning?: boolean;
+  hasHeating?: boolean;
+  hasPrivateBathroom?: boolean;
+  hasKitchen?: boolean;
+  hasBalcony?: boolean;
+  hasSeaView?: boolean;
+  hasMountainView?: boolean;
+  hasCityView?: boolean;
+  isSmokingAllowed?: boolean;
+  isPetFriendly?: boolean;
   images?: string[];
   isActive?: boolean;
 }

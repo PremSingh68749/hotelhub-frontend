@@ -106,7 +106,7 @@ export default function RoomForm({ hotelId, room, onSuccess }: RoomFormProps) {
               value={formData.roomNumber}
               onChange={handleInputChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 placeholder-gray-500"
               placeholder="e.g., 101, A-201, etc."
             />
           </div>
@@ -121,7 +121,7 @@ export default function RoomForm({ hotelId, room, onSuccess }: RoomFormProps) {
               name="floor"
               value={formData.floor}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 placeholder-gray-500"
               placeholder="e.g., Ground, 1st, 2nd, etc."
             />
           </div>
@@ -137,7 +137,7 @@ export default function RoomForm({ hotelId, room, onSuccess }: RoomFormProps) {
             value={selectedRoomTypeId}
             onChange={(e) => setSelectedRoomTypeId(Number(e.target.value))}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
           >
             <option value="">Select a room type</option>
             {roomTypes
@@ -162,7 +162,7 @@ export default function RoomForm({ hotelId, room, onSuccess }: RoomFormProps) {
             onChange={handleInputChange}
             min="0"
             step="0.01"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 placeholder-gray-500"
             placeholder="Leave empty to use room type base price"
           />
           <p className="mt-1 text-sm text-gray-500">
@@ -180,7 +180,7 @@ export default function RoomForm({ hotelId, room, onSuccess }: RoomFormProps) {
             value={formData.status}
             onChange={handleInputChange}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
           >
             <option value="AVAILABLE">Available</option>
             <option value="OCCUPIED">Occupied</option>
@@ -199,7 +199,7 @@ export default function RoomForm({ hotelId, room, onSuccess }: RoomFormProps) {
             value={formData.description}
             onChange={handleInputChange}
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 placeholder-gray-500"
             placeholder="Additional details about this specific room"
           />
         </div>

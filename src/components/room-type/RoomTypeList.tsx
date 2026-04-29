@@ -5,7 +5,7 @@ import { RootState, AppDispatch } from '../../lib/store';
 import { getRoomTypes, deleteRoomType, toggleRoomTypeActiveStatus } from '../../lib/slices/roomTypeSlice';
 import { RoomType } from '../../graphql/room-type';
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import RoomTypeForm from './RoomTypeForm';
 
 interface RoomTypeListProps {
   hotelId: number;
@@ -16,6 +16,9 @@ export default function RoomTypeList({ hotelId }: RoomTypeListProps) {
   const { roomTypes, isLoading, error } = useSelector((state: RootState) => state.roomType);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'create' | 'view' | 'edit'>('create');
+  const [selectedRoomType, setSelectedRoomType] = useState<RoomType | undefined>(undefined);
 
   useEffect(() => {
     dispatch(getRoomTypes(hotelId));
@@ -37,16 +40,44 @@ export default function RoomTypeList({ hotelId }: RoomTypeListProps) {
   const handleToggleStatus = async (id: number, currentStatus: boolean) => {
     setTogglingId(id);
     try {
-      await dispatch(toggleRoomTypeActiveStatus({ 
-        id, 
-        isActive: !currentStatus, 
-        hotelId 
+      await dispatch(toggleRoomTypeActiveStatus({
+        id,
+        isActive: !currentStatus,
+        hotelId
       })).unwrap();
     } catch (error) {
       console.error('Failed to toggle room type status:', error);
     } finally {
       setTogglingId(null);
     }
+  };
+
+  const openCreateModal = () => {
+    setModalMode('create');
+    setSelectedRoomType(undefined);
+    setIsModalOpen(true);
+  };
+
+  const openViewModal = (roomType: RoomType) => {
+    setModalMode('view');
+    setSelectedRoomType(roomType);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (roomType: RoomType) => {
+    setModalMode('edit');
+    setSelectedRoomType(roomType);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedRoomType(undefined);
+  };
+
+  const handleModalSuccess = () => {
+    closeModal();
+    dispatch(getRoomTypes(hotelId));
   };
 
   if (isLoading) {
@@ -66,34 +97,31 @@ export default function RoomTypeList({ hotelId }: RoomTypeListProps) {
     );
   }
 
-  if (roomTypes.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-gray-600 mb-4">No room types found for this hotel.</p>
-        <Link 
-          href={`/hotel-owner/hotels/${hotelId}/room-types/create`}
-          className="inline-block bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700"
-        >
-          Create First Room Type
-        </Link>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-lg font-semibold text-gray-900">Room Types</h3>
-        <Link 
-          href={`/hotel-owner/hotels/${hotelId}/room-types/create`}
+        <button
+          onClick={openCreateModal}
           className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
         >
           Add Room Type
-        </Link>
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {roomTypes.map((roomType: RoomType) => (
+      {roomTypes.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-600 mb-4">No room types found for this hotel.</p>
+          <button
+            onClick={openCreateModal}
+            className="inline-block bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700"
+          >
+            Create First Room Type
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {roomTypes.map((roomType: RoomType) => (
           <div key={roomType.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-start mb-3">
               <h4 className="text-lg font-semibold text-gray-900">{roomType.name}</h4>
@@ -119,7 +147,7 @@ export default function RoomTypeList({ hotelId }: RoomTypeListProps) {
               </div>
               <div className="flex justify-between">
                 <span>Size:</span>
-                <span className="font-medium">{roomType.size} sq ft</span>
+                <span className="font-medium">{roomType.roomSize} sq ft</span>
               </div>
               <div className="flex justify-between">
                 <span>Bed Type:</span>
@@ -127,13 +155,13 @@ export default function RoomTypeList({ hotelId }: RoomTypeListProps) {
               </div>
             </div>
 
-            {roomType.amenities && (
+            {roomType.amenities && roomType.amenities.trim().length > 0 && (
               <div className="mb-4">
                 <p className="text-sm text-gray-700 mb-1">Amenities:</p>
                 <div className="flex flex-wrap gap-1">
-                  {roomType.amenities.split(',').map((amenity, index) => (
-                    <span 
-                      key={index} 
+                  {roomType.amenities.split(',').map((amenity: string, index: number) => (
+                    <span
+                      key={index}
                       className="inline-block bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs"
                     >
                       {amenity.trim()}
@@ -144,18 +172,18 @@ export default function RoomTypeList({ hotelId }: RoomTypeListProps) {
             )}
 
             <div className="flex space-x-2">
-              <Link 
-                href={`/hotel-owner/hotels/${hotelId}/room-types/${roomType.id}`}
+              <button
+                onClick={() => openViewModal(roomType)}
                 className="flex-1 text-center bg-indigo-600 text-white px-3 py-1 rounded text-sm hover:bg-indigo-700"
               >
                 View
-              </Link>
-              <Link 
-                href={`/hotel-owner/hotels/${hotelId}/room-types/${roomType.id}/edit`}
+              </button>
+              <button
+                onClick={() => openEditModal(roomType)}
                 className="flex-1 text-center bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700"
               >
                 Edit
-              </Link>
+              </button>
               <button
                 onClick={() => handleToggleStatus(roomType.id, roomType.isActive)}
                 disabled={togglingId === roomType.id}
@@ -176,8 +204,39 @@ export default function RoomTypeList({ hotelId }: RoomTypeListProps) {
               </button>
             </div>
           </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-900">
+                  {modalMode === 'create' && 'Create Room Type'}
+                  {modalMode === 'view' && 'View Room Type'}
+                  {modalMode === 'edit' && 'Edit Room Type'}
+                </h2>
+                <button
+                  onClick={closeModal}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+              <RoomTypeForm
+                hotelId={hotelId}
+                roomType={selectedRoomType}
+                mode={modalMode}
+                onSuccess={handleModalSuccess}
+                onCancel={closeModal}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

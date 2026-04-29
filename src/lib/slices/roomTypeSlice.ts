@@ -123,11 +123,11 @@ export const updateRoomType = createAsyncThunk(
 
 export const deleteRoomType = createAsyncThunk(
   'roomType/deleteRoomType',
-  async ({ id, hotelId }: { id: number; hotelId: number }, { rejectWithValue }) => {
+  async ({ id, hotelId }: { id: number | string; hotelId: number }, { rejectWithValue }) => {
     try {
       const response = await client.mutate({
         mutation: DELETE_ROOM_TYPE_MUTATION,
-        variables: { id, hotelId },
+        variables: { id: Number(id), hotelId },
       });
       
       return { id, response: (response.data as DeleteRoomTypeResponse).deleteRoomType };
@@ -139,11 +139,11 @@ export const deleteRoomType = createAsyncThunk(
 
 export const toggleRoomTypeActiveStatus = createAsyncThunk(
   'roomType/toggleRoomTypeActiveStatus',
-  async ({ id, isActive, hotelId }: { id: number; isActive: boolean; hotelId: number }, { rejectWithValue }) => {
+  async ({ id, isActive, hotelId }: { id: number | string; isActive: boolean; hotelId: number }, { rejectWithValue }) => {
     try {
       const response = await client.mutate({
         mutation: TOGGLE_ROOM_TYPE_ACTIVE_STATUS_MUTATION,
-        variables: { id, isActive, hotelId },
+        variables: { id: Number(id), isActive, hotelId },
       });
       
       return (response.data as ToggleRoomTypeStatusResponse).toggleRoomTypeActiveStatus;
